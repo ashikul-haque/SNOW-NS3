@@ -202,11 +202,11 @@ snowMac::DoInitialize ()
 {
   if (m_macRxOnWhenIdle)
     {
-      m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_RX_ON);
+      m_phy->PlmeSetTRXStateRequest (SNOW_PHY_RX_ON);
     }
   else
     {
-      m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_TRX_OFF);
+      m_phy->PlmeSetTRXStateRequest (SNOW_PHY_TRX_OFF);
     }
 
   Object::DoInitialize ();
@@ -252,11 +252,11 @@ snowMac::SetRxOnWhenIdle (bool rxOnWhenIdle)
     {
       if (m_macRxOnWhenIdle)
         {
-          m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_RX_ON);
+          m_phy->PlmeSetTRXStateRequest (SNOW_PHY_RX_ON);
         }
       else
         {
-          m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_TRX_OFF);
+          m_phy->PlmeSetTRXStateRequest (SNOW_PHY_TRX_OFF);
         }
     }
 }
@@ -310,7 +310,7 @@ snowMac::McpsDataRequest (McpsDataRequestParams params, Ptr<Packet> p)
       // The frame could still be too large once headers are put on
       // in which case the phy will reject it instead
       NS_LOG_ERROR (this << " packet too big: " << p->GetSize ());
-      confirmParams.m_status = IEEE_802_15_4_FRAME_TOO_LONG;
+      confirmParams.m_status = SNOW_FRAME_TOO_LONG;
       if (!m_mcpsDataConfirmCallback.IsNull ())
         {
           m_mcpsDataConfirmCallback (confirmParams);
@@ -322,7 +322,7 @@ snowMac::McpsDataRequest (McpsDataRequestParams params, Ptr<Packet> p)
       && (params.m_dstAddrMode == NO_PANID_ADDR))
     {
       NS_LOG_ERROR (this << " Can not send packet with no Address field" );
-      confirmParams.m_status = IEEE_802_15_4_INVALID_ADDRESS;
+      confirmParams.m_status = SNOW_INVALID_ADDRESS;
       if (!m_mcpsDataConfirmCallback.IsNull ())
         {
           m_mcpsDataConfirmCallback (confirmParams);
@@ -348,7 +348,7 @@ snowMac::McpsDataRequest (McpsDataRequestParams params, Ptr<Packet> p)
         break;
       default:
         NS_LOG_ERROR (this << " Can not send packet with incorrect Source Address mode = " << params.m_srcAddrMode);
-        confirmParams.m_status = IEEE_802_15_4_INVALID_ADDRESS;
+        confirmParams.m_status = SNOW_INVALID_ADDRESS;
         if (!m_mcpsDataConfirmCallback.IsNull ())
           {
             m_mcpsDataConfirmCallback (confirmParams);
@@ -374,7 +374,7 @@ snowMac::McpsDataRequest (McpsDataRequestParams params, Ptr<Packet> p)
         break;
       default:
         NS_LOG_ERROR (this << " Can not send packet with incorrect Destination Address mode = " << params.m_dstAddrMode);
-        confirmParams.m_status = IEEE_802_15_4_INVALID_ADDRESS;
+        confirmParams.m_status = SNOW_INVALID_ADDRESS;
         if (!m_mcpsDataConfirmCallback.IsNull ())
           {
             m_mcpsDataConfirmCallback (confirmParams);
@@ -446,7 +446,7 @@ snowMac::McpsDataRequest (McpsDataRequestParams params, Ptr<Packet> p)
 
       if (m_txQueue.size () == m_txQueue.max_size ())
         {
-          confirmParams.m_status = IEEE_802_15_4_TRANSACTION_OVERFLOW;
+          confirmParams.m_status = SNOW_TRANSACTION_OVERFLOW;
           if (!m_mcpsDataConfirmCallback.IsNull ())
             {
               m_mcpsDataConfirmCallback (confirmParams);
@@ -621,7 +621,7 @@ snowMac::MlmeSyncRequest (MlmeSyncRequestParams params)
   m_phy->PlmeSetAttributeRequest (snowPibAttributeIdentifier::phyCurrentChannel,&pibAttr);
 
   //Enable Phy receiver
-  m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_RX_ON);
+  m_phy->PlmeSetTRXStateRequest (SNOW_PHY_RX_ON);
 
   uint64_t searchSymbols;
   Time searchBeaconTime;
@@ -716,7 +716,7 @@ snowMac::SendOneBeacon ()
   NS_LOG_DEBUG ("Outgoing superframe Active Portion (Beacon + CAP + CFP): " << m_superframeDuration << " symbols");
 
   ChangeMacState (MAC_SENDING);
-  m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_TX_ON);
+  m_phy->PlmeSetTRXStateRequest (SNOW_PHY_TX_ON);
 }
 
 
@@ -1367,7 +1367,7 @@ snowMac::PdDataIndication (uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                           TxQueueElement *txQElement = m_txQueue.front ();
                           McpsDataConfirmParams confirmParams;
                           confirmParams.m_msduHandle = txQElement->txQMsduHandle;
-                          confirmParams.m_status = IEEE_802_15_4_SUCCESS;
+                          confirmParams.m_status = SNOW_SUCCESS;
                           m_mcpsDataConfirmCallback (confirmParams);
                         }
                       RemoveFirstTxQElement ();
@@ -1429,7 +1429,7 @@ snowMac::SendAck (uint8_t seqno)
 
   // Switch transceiver to TX mode. Proceed sending the Ack on confirm.
   ChangeMacState (MAC_SENDING);
-  m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_TX_ON);
+  m_phy->PlmeSetTRXStateRequest (SNOW_PHY_TX_ON);
 
 }
 
@@ -1515,7 +1515,7 @@ snowMac::PrepareRetransmission (void)
         {
           McpsDataConfirmParams confirmParams;
           confirmParams.m_msduHandle = txQElement->txQMsduHandle;
-          confirmParams.m_status = IEEE_802_15_4_NO_ACK;
+          confirmParams.m_status = SNOW_NO_ACK;
           m_mcpsDataConfirmCallback (confirmParams);
         }
       RemoveFirstTxQElement ();
@@ -1544,7 +1544,7 @@ snowMac::PdDataConfirm (snowPhyEnumeration status)
 
   m_txPkt->PeekHeader (macHdr);
 
-  if (status == IEEE_802_15_4_PHY_SUCCESS)
+  if (status == SNOW_PHY_SUCCESS)
     {
       if (!macHdr.IsAcknowledgment ())
         {
@@ -1593,7 +1593,7 @@ snowMac::PdDataConfirm (snowPhyEnumeration status)
                   NS_ASSERT_MSG (m_txQueue.size () > 0, "TxQsize = 0");
                   TxQueueElement *txQElement = m_txQueue.front ();
                   confirmParams.m_msduHandle = txQElement->txQMsduHandle;
-                  confirmParams.m_status = IEEE_802_15_4_SUCCESS;
+                  confirmParams.m_status = SNOW_SUCCESS;
                   m_mcpsDataConfirmCallback (confirmParams);
                 }
               ifsWaitTime = Seconds ((double) GetIfsSize () / symbolRate);
@@ -1606,7 +1606,7 @@ snowMac::PdDataConfirm (snowPhyEnumeration status)
           m_txPkt = 0;
         }
     }
-  else if (status == IEEE_802_15_4_PHY_UNSPECIFIED)
+  else if (status == SNOW_PHY_UNSPECIFIED)
     {
 
       if (!macHdr.IsAcknowledgment ())
@@ -1618,7 +1618,7 @@ snowMac::PdDataConfirm (snowPhyEnumeration status)
             {
               McpsDataConfirmParams confirmParams;
               confirmParams.m_msduHandle = txQElement->txQMsduHandle;
-              confirmParams.m_status = IEEE_802_15_4_FRAME_TOO_LONG;
+              confirmParams.m_status = SNOW_FRAME_TOO_LONG;
               m_mcpsDataConfirmCallback (confirmParams);
             }
           RemoveFirstTxQElement ();
@@ -1675,7 +1675,7 @@ snowMac::PlmeSetTRXStateConfirm (snowPhyEnumeration status)
 {
   NS_LOG_FUNCTION (this << status);
 
-  if (m_snowMacState == MAC_SENDING && (status == IEEE_802_15_4_PHY_TX_ON || status == IEEE_802_15_4_PHY_SUCCESS))
+  if (m_snowMacState == MAC_SENDING && (status == SNOW_PHY_TX_ON || status == SNOW_PHY_SUCCESS))
     {
       NS_ASSERT (m_txPkt);
 
@@ -1685,16 +1685,16 @@ snowMac::PlmeSetTRXStateConfirm (snowPhyEnumeration status)
       m_macTxTrace (m_txPkt);
       m_phy->PdDataRequest (m_txPkt->GetSize (), m_txPkt);
     }
-  else if (m_snowMacState == MAC_CSMA && (status == IEEE_802_15_4_PHY_RX_ON || status == IEEE_802_15_4_PHY_SUCCESS))
+  else if (m_snowMacState == MAC_CSMA && (status == SNOW_PHY_RX_ON || status == SNOW_PHY_SUCCESS))
     {
       // Start the CSMA algorithm as soon as the receiver is enabled.
       m_csmaCa->Start ();
     }
   else if (m_snowMacState == MAC_IDLE)
     {
-      NS_ASSERT (status == IEEE_802_15_4_PHY_RX_ON || status == IEEE_802_15_4_PHY_SUCCESS || status == IEEE_802_15_4_PHY_TRX_OFF);
+      NS_ASSERT (status == SNOW_PHY_RX_ON || status == SNOW_PHY_SUCCESS || status == SNOW_PHY_TRX_OFF);
 
-      if (status == IEEE_802_15_4_PHY_RX_ON || status == IEEE_802_15_4_PHY_SUCCESS)
+      if (status == SNOW_PHY_RX_ON || status == SNOW_PHY_SUCCESS)
         {
           // Check if there is not messages to transmit when going idle
           CheckQueue ();
@@ -1703,7 +1703,7 @@ snowMac::PlmeSetTRXStateConfirm (snowPhyEnumeration status)
     }
   else if (m_snowMacState == MAC_ACK_PENDING)
     {
-      NS_ASSERT (status == IEEE_802_15_4_PHY_RX_ON || status == IEEE_802_15_4_PHY_SUCCESS);
+      NS_ASSERT (status == SNOW_PHY_RX_ON || status == SNOW_PHY_SUCCESS);
     }
   else
     {
@@ -1734,11 +1734,11 @@ snowMac::SetsnowMacState (snowMacState macState)
 
       if (m_macRxOnWhenIdle)
         {
-          m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_RX_ON);
+          m_phy->PlmeSetTRXStateRequest (SNOW_PHY_RX_ON);
         }
       else
         {
-          m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_TRX_OFF);
+          m_phy->PlmeSetTRXStateRequest (SNOW_PHY_TRX_OFF);
         }
 
 
@@ -1746,20 +1746,20 @@ snowMac::SetsnowMacState (snowMacState macState)
   else if (macState == MAC_ACK_PENDING)
     {
       ChangeMacState (MAC_ACK_PENDING);
-      m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_RX_ON);
+      m_phy->PlmeSetTRXStateRequest (SNOW_PHY_RX_ON);
     }
   else if (macState == MAC_CSMA)
     {
       NS_ASSERT (m_snowMacState == MAC_IDLE || m_snowMacState == MAC_ACK_PENDING);
 
       ChangeMacState (MAC_CSMA);
-      m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_RX_ON);
+      m_phy->PlmeSetTRXStateRequest (SNOW_PHY_RX_ON);
     }
   else if (m_snowMacState == MAC_CSMA && macState == CHANNEL_IDLE)
     {
       // Channel is idle, set transmitter to TX_ON
       ChangeMacState (MAC_SENDING);
-      m_phy->PlmeSetTRXStateRequest (IEEE_802_15_4_PHY_TX_ON);
+      m_phy->PlmeSetTRXStateRequest (SNOW_PHY_TX_ON);
     }
   else if (m_snowMacState == MAC_CSMA && macState == CHANNEL_ACCESS_FAILURE)
     {
@@ -1768,7 +1768,7 @@ snowMac::SetsnowMacState (snowMacState macState)
       // cannot find a clear channel, drop the current packet.
       NS_LOG_DEBUG ( this << " cannot find clear channel");
       confirmParams.m_msduHandle = m_txQueue.front ()->txQMsduHandle;
-      confirmParams.m_status = IEEE_802_15_4_CHANNEL_ACCESS_FAILURE;
+      confirmParams.m_status = SNOW_CHANNEL_ACCESS_FAILURE;
       m_macTxDropTrace (m_txPkt);
       if (!m_mcpsDataConfirmCallback.IsNull ())
         {

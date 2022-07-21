@@ -245,7 +245,7 @@ snowCsmaCa::Start ()
   if (IsSlottedCsmaCa ())
     {
       // TODO: Check if the current PHY is using the Japanese band 950 Mhz:
-      //       (IEEE_802_15_4_950MHZ_BPSK and IEEE_802_15_4_950MHZ_2GFSK)
+      //       (SNOW_950MHZ_BPSK and SNOW_950MHZ_2GFSK)
       //       if in use, m_CW = 1.
       //       Currently 950 Mhz band PHYs are not supported in ns-3.
       //       To know the current used PHY, making the method for GetPhy()->GetMyPhyOption()
@@ -485,7 +485,7 @@ snowCsmaCa::PlmeCcaConfirm (snowPhyEnumeration status)
   if (m_ccaRequestRunning)
     {
       m_ccaRequestRunning = false;
-      if (status == IEEE_802_15_4_PHY_IDLE)
+      if (status == SNOW_PHY_IDLE)
         {
           if (IsSlottedCsmaCa ())
             {

@@ -112,8 +112,8 @@ snowPhy::snowPhy (void)
   : m_edRequest (),
   m_setTRXState ()
 {
-  m_trxState = IEEE_802_15_4_PHY_TRX_OFF;
-  m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+  m_trxState = SNOW_PHY_TRX_OFF;
+  m_trxStatePending = SNOW_PHY_IDLE;
 
   // default PHY PIB attributes
   m_phyPIBAttributes.phyTransmitPower = 0;
@@ -144,7 +144,7 @@ snowPhy::snowPhy (void)
   m_random->SetAttribute ("Max", DoubleValue (1.0));
 
 
-  ChangeTrxState (IEEE_802_15_4_PHY_TRX_OFF);
+  ChangeTrxState (SNOW_PHY_TRX_OFF);
 }
 
 snowPhy::~snowPhy (void)
@@ -158,8 +158,8 @@ snowPhy::DoDispose (void)
 
   // Cancel pending transceiver state change, if one is in progress.
   m_setTRXState.Cancel ();
-  m_trxState = IEEE_802_15_4_PHY_TRX_OFF;
-  m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+  m_trxState = SNOW_PHY_TRX_OFF;
+  m_trxStatePending = SNOW_PHY_IDLE;
 
   m_mobility = 0;
   m_device = 0;
@@ -294,7 +294,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
   NS_ASSERT (p != 0);
 
   // Prevent PHY from receiving another packet while switching the transceiver state.
-  if (m_trxState == IEEE_802_15_4_PHY_RX_ON && !m_setTRXState.IsRunning ())
+  if (m_trxState == SNOW_PHY_RX_ON && !m_setTRXState.IsRunning ())
     {
       // The specification doesn't seem to refer to BUSY_RX, but vendor
       // data sheets suggest that this is a substate of the RX_ON state
@@ -324,7 +324,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
       // It's useless to even *try* to decode the packet.
       if (10 * log10 (sinr) > -5)
         {
-          ChangeTrxState (IEEE_802_15_4_PHY_BUSY_RX);
+          ChangeTrxState (SNOW_PHY_BUSY_RX);
           m_currentRxPacket = std::make_pair (snowRxParams, false);
           m_phyRxBeginTrace (p);
 
@@ -335,7 +335,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
           m_phyRxDropTrace (p);
         }
     }
-  else if (m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+  else if (m_trxState == SNOW_PHY_BUSY_RX)
     {
       // Drop the new packet.
       NS_LOG_DEBUG (this << " packet collision");
@@ -383,7 +383,7 @@ snowPhy::CheckInterference (void)
   Ptr<snowSpectrumSignalParameters> currentRxParams = m_currentRxPacket.first;
 
   // We are currently receiving a packet.
-  if (m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+  if (m_trxState == SNOW_PHY_BUSY_RX)
     {
       // NS_ASSERT (currentRxParams && !m_currentRxPacket.second);
 
@@ -479,7 +479,7 @@ snowPhy::EndRx (Ptr<SpectrumSignalParameters> par)
       m_currentRxPacket = std::make_pair (none, true);
 
       // We may be waiting to apply a pending state change.
-      if (m_trxStatePending != IEEE_802_15_4_PHY_IDLE)
+      if (m_trxStatePending != SNOW_PHY_IDLE)
         {
           // Only change the state immediately, if the transceiver is not already
           // switching the state.
@@ -487,16 +487,16 @@ snowPhy::EndRx (Ptr<SpectrumSignalParameters> par)
             {
               NS_LOG_LOGIC ("Apply pending state change to " << m_trxStatePending);
               ChangeTrxState (m_trxStatePending);
-              m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+              m_trxStatePending = SNOW_PHY_IDLE;
               if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
                 {
-                  m_plmeSetTRXStateConfirmCallback (IEEE_802_15_4_PHY_SUCCESS);
+                  m_plmeSetTRXStateConfirmCallback (SNOW_PHY_SUCCESS);
                 }
             }
         }
       else
         {
-          ChangeTrxState (IEEE_802_15_4_PHY_RX_ON);
+          ChangeTrxState (SNOW_PHY_RX_ON);
         }
     }
 }
@@ -510,7 +510,7 @@ snowPhy::PdDataRequest (const uint32_t psduLength, Ptr<Packet> p)
     {
       if (!m_pdDataConfirmCallback.IsNull ())
         {
-          m_pdDataConfirmCallback (IEEE_802_15_4_PHY_UNSPECIFIED);
+          m_pdDataConfirmCallback (SNOW_PHY_UNSPECIFIED);
         }
       NS_LOG_DEBUG ("Drop packet because psduLength too long: " << psduLength);
       return;
@@ -519,7 +519,7 @@ snowPhy::PdDataRequest (const uint32_t psduLength, Ptr<Packet> p)
   // Prevent PHY from sending a packet while switching the transceiver state.
   if (!m_setTRXState.IsRunning ())
     {
-      if (m_trxState == IEEE_802_15_4_PHY_TX_ON)
+      if (m_trxState == SNOW_PHY_TX_ON)
         {
           //send down
           NS_ASSERT (m_channel);
@@ -542,12 +542,12 @@ snowPhy::PdDataRequest (const uint32_t psduLength, Ptr<Packet> p)
           txParams->packetBurst = pb;
           m_channel->StartTx (txParams);
           m_pdDataRequest = Simulator::Schedule (txParams->duration, &snowPhy::EndTx, this);
-          ChangeTrxState (IEEE_802_15_4_PHY_BUSY_TX);
+          ChangeTrxState (SNOW_PHY_BUSY_TX);
           return;
         }
-      else if ((m_trxState == IEEE_802_15_4_PHY_RX_ON)
-               || (m_trxState == IEEE_802_15_4_PHY_TRX_OFF)
-               || (m_trxState == IEEE_802_15_4_PHY_BUSY_TX) )
+      else if ((m_trxState == SNOW_PHY_RX_ON)
+               || (m_trxState == SNOW_PHY_TRX_OFF)
+               || (m_trxState == SNOW_PHY_BUSY_TX) )
         {
           if (!m_pdDataConfirmCallback.IsNull ())
             {
@@ -568,7 +568,7 @@ snowPhy::PdDataRequest (const uint32_t psduLength, Ptr<Packet> p)
       // What is the correct behavior in this case?
       if (!m_pdDataConfirmCallback.IsNull ())
         {
-          m_pdDataConfirmCallback (IEEE_802_15_4_PHY_UNSPECIFIED);
+          m_pdDataConfirmCallback (SNOW_PHY_UNSPECIFIED);
         }
       // Drop packet, hit PhyTxDrop trace
       m_phyTxDropTrace (p);
@@ -581,7 +581,7 @@ snowPhy::PlmeCcaRequest (void)
 {
   NS_LOG_FUNCTION (this);
 
-  if (m_trxState == IEEE_802_15_4_PHY_RX_ON || m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+  if (m_trxState == SNOW_PHY_RX_ON || m_trxState == SNOW_PHY_BUSY_RX)
     {
       m_ccaPeakPower = 0.0;
       Time ccaTime = Seconds (8.0 / GetDataOrSymbolRate (false));
@@ -591,13 +591,13 @@ snowPhy::PlmeCcaRequest (void)
     {
       if (!m_plmeCcaConfirmCallback.IsNull ())
         {
-          if (m_trxState == IEEE_802_15_4_PHY_TRX_OFF)
+          if (m_trxState == SNOW_PHY_TRX_OFF)
             {
-              m_plmeCcaConfirmCallback (IEEE_802_15_4_PHY_TRX_OFF);
+              m_plmeCcaConfirmCallback (SNOW_PHY_TRX_OFF);
             }
           else
             {
-              m_plmeCcaConfirmCallback (IEEE_802_15_4_PHY_BUSY);
+              m_plmeCcaConfirmCallback (SNOW_PHY_BUSY);
             }
         }
     }
@@ -607,7 +607,7 @@ void
 snowPhy::PlmeEdRequest (void)
 {
   NS_LOG_FUNCTION (this);
-  if (m_trxState == IEEE_802_15_4_PHY_RX_ON || m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+  if (m_trxState == SNOW_PHY_RX_ON || m_trxState == SNOW_PHY_BUSY_RX)
     {
       // Average over the powers of all signals received until EndEd()
       m_edPower.averagePower = 0;
@@ -618,9 +618,9 @@ snowPhy::PlmeEdRequest (void)
   else
     {
       snowPhyEnumeration result = m_trxState;
-      if (m_trxState == IEEE_802_15_4_PHY_BUSY_TX)
+      if (m_trxState == SNOW_PHY_BUSY_TX)
         {
-          result = IEEE_802_15_4_PHY_TX_ON;
+          result = SNOW_PHY_TX_ON;
         }
 
       if (!m_plmeEdConfirmCallback.IsNull ())
@@ -647,12 +647,12 @@ snowPhy::PlmeGetAttributeRequest (snowPibAttributeIdentifier id)
     case phySHRDuration:
     case phySymbolsPerOctet:
       {
-        status = IEEE_802_15_4_PHY_SUCCESS;
+        status = SNOW_PHY_SUCCESS;
         break;
       }
     default:
       {
-        status = IEEE_802_15_4_PHY_UNSUPPORTED_ATTRIBUTE;
+        status = SNOW_PHY_UNSUPPORTED_ATTRIBUTE;
         break;
       }
     }
@@ -671,10 +671,10 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
   NS_LOG_FUNCTION (this << state);
 
   // Check valid states (Table 14)
-  NS_ABORT_IF ( (state != IEEE_802_15_4_PHY_RX_ON)
-                && (state != IEEE_802_15_4_PHY_TRX_OFF)
-                && (state != IEEE_802_15_4_PHY_FORCE_TRX_OFF)
-                && (state != IEEE_802_15_4_PHY_TX_ON) );
+  NS_ABORT_IF ( (state != SNOW_PHY_RX_ON)
+                && (state != SNOW_PHY_TRX_OFF)
+                && (state != SNOW_PHY_FORCE_TRX_OFF)
+                && (state != SNOW_PHY_TX_ON) );
 
   NS_LOG_LOGIC ("Trying to set m_trxState from " << m_trxState << " to " << state);
   // this method always overrides previous state setting attempts
@@ -692,9 +692,9 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
           m_setTRXState.Cancel ();
         }
     }
-  if (m_trxStatePending != IEEE_802_15_4_PHY_IDLE)
+  if (m_trxStatePending != SNOW_PHY_IDLE)
     {
-      m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+      m_trxStatePending = SNOW_PHY_IDLE;
     }
 
   if (state == m_trxState)
@@ -706,9 +706,9 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
       return;
     }
 
-  if ( ((state == IEEE_802_15_4_PHY_RX_ON)
-        || (state == IEEE_802_15_4_PHY_TRX_OFF))
-       && (m_trxState == IEEE_802_15_4_PHY_BUSY_TX) )
+  if ( ((state == SNOW_PHY_RX_ON)
+        || (state == SNOW_PHY_TRX_OFF))
+       && (m_trxState == SNOW_PHY_BUSY_TX) )
     {
       NS_LOG_DEBUG ("Phy is busy; setting state pending to " << state);
       m_trxStatePending = state;
@@ -719,20 +719,20 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
   // a valid SFD.  Here, we are not modelling at that level of
   // granularity, so we just test for BUSY_RX state (any part of
   // a packet being actively received)
-  if (state == IEEE_802_15_4_PHY_TRX_OFF)
+  if (state == SNOW_PHY_TRX_OFF)
     {
       CancelEd (state);
 
-      if ((m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+      if ((m_trxState == SNOW_PHY_BUSY_RX)
           && (m_currentRxPacket.first) && (!m_currentRxPacket.second))
         {
           NS_LOG_DEBUG ("Receiver has valid SFD; defer state change");
           m_trxStatePending = state;
           return;  // Send PlmeSetTRXStateConfirm later
         }
-      else if (m_trxState == IEEE_802_15_4_PHY_RX_ON || m_trxState == IEEE_802_15_4_PHY_TX_ON)
+      else if (m_trxState == SNOW_PHY_RX_ON || m_trxState == SNOW_PHY_TX_ON)
         {
-          ChangeTrxState (IEEE_802_15_4_PHY_TRX_OFF);
+          ChangeTrxState (SNOW_PHY_TRX_OFF);
           if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
             {
               m_plmeSetTRXStateConfirmCallback (state);
@@ -741,12 +741,12 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
         }
     }
 
-  if (state == IEEE_802_15_4_PHY_TX_ON)
+  if (state == SNOW_PHY_TX_ON)
     {
       CancelEd (state);
 
       NS_LOG_DEBUG ("turn on PHY_TX_ON");
-      if ((m_trxState == IEEE_802_15_4_PHY_BUSY_RX) || (m_trxState == IEEE_802_15_4_PHY_RX_ON))
+      if ((m_trxState == SNOW_PHY_BUSY_RX) || (m_trxState == SNOW_PHY_RX_ON))
         {
           if (m_currentRxPacket.first)
             {
@@ -762,11 +762,11 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
               m_ccaRequest.Cancel ();
               if (!m_plmeCcaConfirmCallback.IsNull ())
                 {
-                  m_plmeCcaConfirmCallback (IEEE_802_15_4_PHY_BUSY);
+                  m_plmeCcaConfirmCallback (SNOW_PHY_BUSY);
                 }
             }
 
-          m_trxStatePending = IEEE_802_15_4_PHY_TX_ON;
+          m_trxStatePending = SNOW_PHY_TX_ON;
 
           // Delay for turnaround time
           // TODO: Does it also take aTurnaroundTime to switch the transceiver state,
@@ -775,30 +775,30 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
           m_setTRXState = Simulator::Schedule (setTime, &snowPhy::EndSetTRXState, this);
           return;
         }
-      else if (m_trxState == IEEE_802_15_4_PHY_BUSY_TX || m_trxState == IEEE_802_15_4_PHY_TX_ON)
+      else if (m_trxState == SNOW_PHY_BUSY_TX || m_trxState == SNOW_PHY_TX_ON)
         {
           // We do NOT change the transceiver state here. We only report that
           // the transceiver is already in TX_ON state.
           if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
             {
-              m_plmeSetTRXStateConfirmCallback (IEEE_802_15_4_PHY_TX_ON);
+              m_plmeSetTRXStateConfirmCallback (SNOW_PHY_TX_ON);
             }
           return;
         }
-      else if (m_trxState == IEEE_802_15_4_PHY_TRX_OFF)
+      else if (m_trxState == SNOW_PHY_TRX_OFF)
         {
-          ChangeTrxState (IEEE_802_15_4_PHY_TX_ON);
+          ChangeTrxState (SNOW_PHY_TX_ON);
           if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
             {
-              m_plmeSetTRXStateConfirmCallback (IEEE_802_15_4_PHY_TX_ON);
+              m_plmeSetTRXStateConfirmCallback (SNOW_PHY_TX_ON);
             }
           return;
         }
     }
 
-  if (state == IEEE_802_15_4_PHY_FORCE_TRX_OFF)
+  if (state == SNOW_PHY_FORCE_TRX_OFF)
     {
-      if (m_trxState == IEEE_802_15_4_PHY_TRX_OFF)
+      if (m_trxState == SNOW_PHY_TRX_OFF)
         {
           NS_LOG_DEBUG ("force TRX_OFF, was already off");
         }
@@ -811,40 +811,40 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
               NS_LOG_DEBUG ("force TRX_OFF, terminate reception");
               m_currentRxPacket.second = true;
             }
-          if (m_trxState == IEEE_802_15_4_PHY_BUSY_TX)
+          if (m_trxState == SNOW_PHY_BUSY_TX)
             {
               NS_LOG_DEBUG ("force TRX_OFF, terminate transmission");
               m_currentTxPacket.second = true;
             }
-          ChangeTrxState (IEEE_802_15_4_PHY_TRX_OFF);
+          ChangeTrxState (SNOW_PHY_TRX_OFF);
           // Clear any other state
-          m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+          m_trxStatePending = SNOW_PHY_IDLE;
         }
       if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
         {
-          m_plmeSetTRXStateConfirmCallback (IEEE_802_15_4_PHY_SUCCESS);
+          m_plmeSetTRXStateConfirmCallback (SNOW_PHY_SUCCESS);
         }
       return;
     }
 
-  if (state == IEEE_802_15_4_PHY_RX_ON)
+  if (state == SNOW_PHY_RX_ON)
     {
-      if (m_trxState == IEEE_802_15_4_PHY_TX_ON || m_trxState == IEEE_802_15_4_PHY_TRX_OFF)
+      if (m_trxState == SNOW_PHY_TX_ON || m_trxState == SNOW_PHY_TRX_OFF)
         {
           // Turnaround delay
           // TODO: Does it really take aTurnaroundTime to switch the transceiver state,
           //       even when the transmitter is not busy? (6.9.1)
-          m_trxStatePending = IEEE_802_15_4_PHY_RX_ON;
+          m_trxStatePending = SNOW_PHY_RX_ON;
 
           Time setTime = Seconds ( (double) aTurnaroundTime / GetDataOrSymbolRate (false));
           m_setTRXState = Simulator::Schedule (setTime, &snowPhy::EndSetTRXState, this);
           return;
         }
-      else if (m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+      else if (m_trxState == SNOW_PHY_BUSY_RX)
         {
           if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
             {
-              m_plmeSetTRXStateConfirmCallback (IEEE_802_15_4_PHY_RX_ON);
+              m_plmeSetTRXStateConfirmCallback (SNOW_PHY_RX_ON);
             }
           return;
         }
@@ -866,7 +866,7 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
 {
   NS_LOG_FUNCTION (this << id << attribute);
   NS_ASSERT (attribute);
-  snowPhyEnumeration status = IEEE_802_15_4_PHY_SUCCESS;
+  snowPhyEnumeration status = SNOW_PHY_SUCCESS;
 
   switch (id)
     {
@@ -875,7 +875,7 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
         if (attribute->phyTransmitPower & 0xC0)
           {
             NS_LOG_LOGIC ("snowPhy::PlmeSetAttributeRequest error - can not change read-only attribute bits.");
-            status = IEEE_802_15_4_PHY_INVALID_PARAMETER;
+            status = SNOW_PHY_INVALID_PARAMETER;
           }
         else
           {
@@ -889,7 +889,7 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
       {
         if ((attribute->phyCCAMode < 1) || (attribute->phyCCAMode > 3))
           {
-            status = IEEE_802_15_4_PHY_INVALID_PARAMETER;
+            status = SNOW_PHY_INVALID_PARAMETER;
           }
         else
           {
@@ -899,7 +899,7 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
       }
     default:
       {
-        status = IEEE_802_15_4_PHY_UNSUPPORTED_ATTRIBUTE;
+        status = SNOW_PHY_UNSUPPORTED_ATTRIBUTE;
         break;
       }
     }
@@ -971,16 +971,16 @@ bool
 snowPhy::PhyIsBusy (void) const
 {
   NS_LOG_FUNCTION (this << m_trxState);
-  return ((m_trxState == IEEE_802_15_4_PHY_BUSY_TX)
-          || (m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
-          || (m_trxState == IEEE_802_15_4_PHY_BUSY));
+  return ((m_trxState == SNOW_PHY_BUSY_TX)
+          || (m_trxState == SNOW_PHY_BUSY_RX)
+          || (m_trxState == SNOW_PHY_BUSY));
 }
 
 void
 snowPhy::CancelEd (snowPhyEnumeration state)
 {
   NS_LOG_FUNCTION (this);
-  NS_ASSERT (state == IEEE_802_15_4_PHY_TRX_OFF || state == IEEE_802_15_4_PHY_TX_ON);
+  NS_ASSERT (state == SNOW_PHY_TRX_OFF || state == SNOW_PHY_TX_ON);
 
   if (!m_edRequest.IsExpired ())
     {
@@ -1020,7 +1020,7 @@ snowPhy::EndEd (void)
 
   if (!m_plmeEdConfirmCallback.IsNull ())
     {
-      m_plmeEdConfirmCallback (IEEE_802_15_4_PHY_SUCCESS, energyLevel);
+      m_plmeEdConfirmCallback (SNOW_PHY_SUCCESS, energyLevel);
     }
 }
 
@@ -1028,7 +1028,7 @@ void
 snowPhy::EndCca (void)
 {
   NS_LOG_FUNCTION (this);
-  snowPhyEnumeration sensedChannelState = IEEE_802_15_4_PHY_UNSPECIFIED;
+  snowPhyEnumeration sensedChannelState = SNOW_PHY_UNSPECIFIED;
 
   // Update peak power.
   double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()  );
@@ -1039,50 +1039,50 @@ snowPhy::EndCca (void)
 
   if (PhyIsBusy ())
     {
-      sensedChannelState = IEEE_802_15_4_PHY_BUSY;
+      sensedChannelState = SNOW_PHY_BUSY;
     }
   else if (m_phyPIBAttributes.phyCCAMode == 1)
     { //sec 6.9.9 ED detection
       // -- ED threshold at most 10 dB above receiver sensitivity.
       if (10 * log10 (m_ccaPeakPower / m_rxSensitivity) >= 10.0)
         {
-          sensedChannelState = IEEE_802_15_4_PHY_BUSY;
+          sensedChannelState = SNOW_PHY_BUSY;
         }
       else
         {
-          sensedChannelState = IEEE_802_15_4_PHY_IDLE;
+          sensedChannelState = SNOW_PHY_IDLE;
         }
     }
   else if (m_phyPIBAttributes.phyCCAMode == 2)
     {
       //sec 6.9.9 carrier sense only
-      if (m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+      if (m_trxState == SNOW_PHY_BUSY_RX)
         {
           // We currently do not model PPDU reception in detail. Instead we model
           // packet reception starting with the first bit of the preamble.
           // Therefore, this code will never be reached, as PhyIsBusy() would
           // already lead to a channel busy condition.
           // TODO: Change this, if we also model preamble and SFD detection.
-          sensedChannelState = IEEE_802_15_4_PHY_BUSY;
+          sensedChannelState = SNOW_PHY_BUSY;
         }
       else
         {
-          sensedChannelState = IEEE_802_15_4_PHY_IDLE;
+          sensedChannelState = SNOW_PHY_IDLE;
         }
     }
   else if (m_phyPIBAttributes.phyCCAMode == 3)
     { //sect 6.9.9 both
       if ((10 * log10 (m_ccaPeakPower / m_rxSensitivity) >= 10.0)
-          && m_trxState == IEEE_802_15_4_PHY_BUSY_RX)
+          && m_trxState == SNOW_PHY_BUSY_RX)
         {
           // Again, this code will never be reached, if we are already receiving
           // a packet, as PhyIsBusy() would already lead to a channel busy condition.
           // TODO: Change this, if we also model preamble and SFD detection.
-          sensedChannelState = IEEE_802_15_4_PHY_BUSY;
+          sensedChannelState = SNOW_PHY_BUSY;
         }
       else
         {
-          sensedChannelState = IEEE_802_15_4_PHY_IDLE;
+          sensedChannelState = SNOW_PHY_IDLE;
         }
     }
   else
@@ -1103,9 +1103,9 @@ snowPhy::EndSetTRXState (void)
 {
   NS_LOG_FUNCTION (this);
 
-  NS_ABORT_IF ( (m_trxStatePending != IEEE_802_15_4_PHY_RX_ON) && (m_trxStatePending != IEEE_802_15_4_PHY_TX_ON) );
+  NS_ABORT_IF ( (m_trxStatePending != SNOW_PHY_RX_ON) && (m_trxStatePending != SNOW_PHY_TX_ON) );
   ChangeTrxState (m_trxStatePending);
-  m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+  m_trxStatePending = SNOW_PHY_IDLE;
 
   if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
     {
@@ -1118,7 +1118,7 @@ snowPhy::EndTx (void)
 {
   NS_LOG_FUNCTION (this);
 
-  NS_ABORT_IF ( (m_trxState != IEEE_802_15_4_PHY_BUSY_TX) && (m_trxState != IEEE_802_15_4_PHY_TRX_OFF));
+  NS_ABORT_IF ( (m_trxState != SNOW_PHY_BUSY_TX) && (m_trxState != SNOW_PHY_TRX_OFF));
 
   if (m_currentTxPacket.second == false)
     {
@@ -1126,7 +1126,7 @@ snowPhy::EndTx (void)
       m_phyTxEndTrace (m_currentTxPacket.first);
       if (!m_pdDataConfirmCallback.IsNull ())
         {
-          m_pdDataConfirmCallback (IEEE_802_15_4_PHY_SUCCESS);
+          m_pdDataConfirmCallback (SNOW_PHY_SUCCESS);
         }
     }
   else
@@ -1136,7 +1136,7 @@ snowPhy::EndTx (void)
       if (!m_pdDataConfirmCallback.IsNull ())
         {
           // See if this is ever entered in another state
-          NS_ASSERT (m_trxState ==  IEEE_802_15_4_PHY_TRX_OFF);
+          NS_ASSERT (m_trxState ==  SNOW_PHY_TRX_OFF);
           m_pdDataConfirmCallback (m_trxState);
         }
     }
@@ -1145,7 +1145,7 @@ snowPhy::EndTx (void)
 
 
   // We may be waiting to apply a pending state change.
-  if (m_trxStatePending != IEEE_802_15_4_PHY_IDLE)
+  if (m_trxStatePending != SNOW_PHY_IDLE)
     {
       // Only change the state immediately, if the transceiver is not already
       // switching the state.
@@ -1153,18 +1153,18 @@ snowPhy::EndTx (void)
         {
           NS_LOG_LOGIC ("Apply pending state change to " << m_trxStatePending);
           ChangeTrxState (m_trxStatePending);
-          m_trxStatePending = IEEE_802_15_4_PHY_IDLE;
+          m_trxStatePending = SNOW_PHY_IDLE;
           if (!m_plmeSetTRXStateConfirmCallback.IsNull ())
             {
-              m_plmeSetTRXStateConfirmCallback (IEEE_802_15_4_PHY_SUCCESS);
+              m_plmeSetTRXStateConfirmCallback (SNOW_PHY_SUCCESS);
             }
         }
     }
   else
     {
-      if (m_trxState != IEEE_802_15_4_PHY_TRX_OFF)
+      if (m_trxState != SNOW_PHY_TRX_OFF)
         {
-          ChangeTrxState (IEEE_802_15_4_PHY_TX_ON);
+          ChangeTrxState (SNOW_PHY_TX_ON);
         }
     }
 }
@@ -1189,7 +1189,7 @@ snowPhy::GetDataOrSymbolRate (bool isData)
 
   double rate = 0.0;
 
-  //NS_ASSERT (m_phyOption < IEEE_802_15_4_INVALID_PHY_OPTION);
+  //NS_ASSERT (m_phyOption < SNOW_INVALID_PHY_OPTION);
 
   if (isData)
     {
@@ -1211,7 +1211,7 @@ snowPhy::GetPpduHeaderTxTime (void)
   bool isData = false;
   double totalPpduHdrSymbols;
 
-  //NS_ASSERT (m_phyOption < IEEE_802_15_4_INVALID_PHY_OPTION);
+  //NS_ASSERT (m_phyOption < SNOW_INVALID_PHY_OPTION);
 
   totalPpduHdrSymbols = ppduHeaderSymbolNumbers[m_phyOption].shrPreamble
     + ppduHeaderSymbolNumbers[m_phyOption].shrSfd
@@ -1279,7 +1279,7 @@ uint64_t
 snowPhy::GetPhySHRDuration (void) const
 {
   NS_LOG_FUNCTION (this);
-  //NS_ASSERT (m_phyOption < IEEE_802_15_4_INVALID_PHY_OPTION);
+  //NS_ASSERT (m_phyOption < SNOW_INVALID_PHY_OPTION);
 
   return ppduHeaderSymbolNumbers[m_phyOption].shrPreamble
          + ppduHeaderSymbolNumbers[m_phyOption].shrSfd;
@@ -1289,7 +1289,7 @@ double
 snowPhy::GetPhySymbolsPerOctet (void) const
 {
   NS_LOG_FUNCTION (this);
-  //NS_ASSERT (m_phyOption < IEEE_802_15_4_INVALID_PHY_OPTION);
+  //NS_ASSERT (m_phyOption < SNOW_INVALID_PHY_OPTION);
 
   return dataSymbolRates [m_phyOption].symbolRate / (dataSymbolRates [m_phyOption].bitRate / 8);
 }
