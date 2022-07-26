@@ -19,8 +19,8 @@
  *  Gary Pei <guangyu.pei@boeing.com>
  *  Sascha Alexander Jopen <jopen@cs.uni-bonn.de>
  */
-#ifndef LR_WPAN_PHY_H
-#define LR_WPAN_PHY_H
+#ifndef SNOW_PHY_H
+#define SNOW_PHY_H
 
 #include "snow-interference-helper.h"
 
@@ -139,7 +139,8 @@ typedef enum
   phyCurrentPage = 0x04,
   phyMaxFrameDuration = 0x05,
   phySHRDuration = 0x06,
-  phySymbolsPerOctet = 0x07
+  phySymbolsPerOctet = 0x07,
+  centerFreq = 0x08
 } snowPibAttributeIdentifier;
 
 /**
@@ -157,6 +158,7 @@ typedef struct
   uint32_t phyMaxFrameDuration;      //!< The maximum number of symbols in a frame
   uint32_t phySHRDuration;           //!< The duration of the synchronization header (SHR) in symbols
   double phySymbolsPerOctet;         //!< The number of symbols per octet
+  double centerFreq;
 } snowPhyPibAttributes;
 
 /**

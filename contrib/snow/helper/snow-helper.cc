@@ -117,31 +117,31 @@ snowHelper::snowPhyEnumerationPrinter (snowPhyEnumeration e)
 {
   switch (e)
     {
-    case IEEE_802_15_4_PHY_BUSY:
+    case SNOW_PHY_BUSY:
       return std::string ("BUSY");
-    case IEEE_802_15_4_PHY_BUSY_RX:
+    case SNOW_PHY_BUSY_RX:
       return std::string ("BUSY_RX");
-    case IEEE_802_15_4_PHY_BUSY_TX:
+    case SNOW_PHY_BUSY_TX:
       return std::string ("BUSY_TX");
-    case IEEE_802_15_4_PHY_FORCE_TRX_OFF:
+    case SNOW_PHY_FORCE_TRX_OFF:
       return std::string ("FORCE_TRX_OFF");
-    case IEEE_802_15_4_PHY_IDLE:
+    case SNOW_PHY_IDLE:
       return std::string ("IDLE");
-    case IEEE_802_15_4_PHY_INVALID_PARAMETER:
+    case SNOW_PHY_INVALID_PARAMETER:
       return std::string ("INVALID_PARAMETER");
-    case IEEE_802_15_4_PHY_RX_ON:
+    case SNOW_PHY_RX_ON:
       return std::string ("RX_ON");
-    case IEEE_802_15_4_PHY_SUCCESS:
+    case SNOW_PHY_SUCCESS:
       return std::string ("SUCCESS");
-    case IEEE_802_15_4_PHY_TRX_OFF:
+    case SNOW_PHY_TRX_OFF:
       return std::string ("TRX_OFF");
-    case IEEE_802_15_4_PHY_TX_ON:
+    case SNOW_PHY_TX_ON:
       return std::string ("TX_ON");
-    case IEEE_802_15_4_PHY_UNSUPPORTED_ATTRIBUTE:
+    case SNOW_PHY_UNSUPPORTED_ATTRIBUTE:
       return std::string ("UNSUPPORTED_ATTRIBUTE");
-    case IEEE_802_15_4_PHY_READ_ONLY:
+    case SNOW_PHY_READ_ONLY:
       return std::string ("READ_ONLY");
-    case IEEE_802_15_4_PHY_UNSPECIFIED:
+    case SNOW_PHY_UNSPECIFIED:
       return std::string ("UNSPECIFIED");
     default:
       return std::string ("INVALID");

@@ -119,6 +119,7 @@ snowPhy::snowPhy (void)
   m_phyPIBAttributes.phyTransmitPower = 0;
   m_phyPIBAttributes.phyCurrentPage = 0;
   m_phyPIBAttributes.phyCCAMode = 1;
+  m_phyPIBAttributes.centerFreq = 500e6;
 
   SetMyPhyOption ();
 
@@ -129,8 +130,8 @@ snowPhy::snowPhy (void)
   // default -110 dBm in W for 2.4 GHz
   m_rxSensitivity = pow (10.0, -106.58 / 10.0) / 1000.0;
   snowSpectrumValueHelper psdHelper;
-  m_txPsd = psdHelper.CreateTxPowerSpectralDensity (GetNominalTxPowerFromPib (m_phyPIBAttributes.phyTransmitPower));
-  m_noise = psdHelper.CreateNoisePowerSpectralDensity ();
+  m_txPsd = psdHelper.CreateTxPowerSpectralDensity (GetNominalTxPowerFromPib (m_phyPIBAttributes.phyTransmitPower), m_phyPIBAttributes.centerFreq);
+  m_noise = psdHelper.CreateNoisePowerSpectralDensity (m_phyPIBAttributes.centerFreq);
   m_signal = Create<snowInterferenceHelper> (m_noise->GetSpectrumModel ());
   m_rxLastUpdate = Seconds (0);
   Ptr<Packet> none_packet = 0;
@@ -870,6 +871,12 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
 
   switch (id)
     {
+
+    case centerFreq:
+      {
+        m_phyPIBAttributes.centerFreq = attribute->centerFreq;
+        break;
+      }
     case phyTransmitPower:
       {
         if (attribute->phyTransmitPower & 0xC0)
@@ -881,7 +888,7 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
           {
             m_phyPIBAttributes.phyTransmitPower = attribute->phyTransmitPower;
             snowSpectrumValueHelper psdHelper;
-            m_txPsd = psdHelper.CreateTxPowerSpectralDensity (GetNominalTxPowerFromPib (m_phyPIBAttributes.phyTransmitPower));
+            m_txPsd = psdHelper.CreateTxPowerSpectralDensity (GetNominalTxPowerFromPib (m_phyPIBAttributes.phyTransmitPower), m_phyPIBAttributes.centerFreq);
           }
         break;
       }

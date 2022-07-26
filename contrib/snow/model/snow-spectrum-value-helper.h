@@ -43,14 +43,14 @@ public:
    * \param channel the channel number per IEEE802.15.4
    * \return a Ptr to a newly created SpectrumValue instance
    */
-  Ptr<SpectrumValue> CreateTxPowerSpectralDensity (double txPower);
+  Ptr<SpectrumValue> CreateTxPowerSpectralDensity (double txPower, double centerFreq);
 
   /**
    * \brief create spectrum value for noise
    * \param channel the channel number per IEEE802.15.4
    * \return a Ptr to a newly created SpectrumValue instance
    */
-  Ptr<SpectrumValue> CreateNoisePowerSpectralDensity ();
+  Ptr<SpectrumValue> CreateNoisePowerSpectralDensity (double centerFreq);
 
   /**
    * \brief total average power of the signal is the integral of the PSD using

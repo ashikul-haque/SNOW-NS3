@@ -28,6 +28,7 @@ namespace ns3 {
 NS_LOG_COMPONENT_DEFINE ("snowSpectrumValueHelper");
 
 Ptr<SpectrumModel> g_snowSpectrumModel; //!< Global object used to initialize the snow Spectrum Model
+double m_bandwidth = 100e3, m_centerFreq = 500e6;
 
 /**
  * \ingroup snow
@@ -36,15 +37,16 @@ Ptr<SpectrumModel> g_snowSpectrumModel; //!< Global object used to initialize th
 class snowSpectrumModelInitializer
 {
 public:
-  snowSpectrumModelInitializer (double bandwidth, double centerFreq)
+
+  snowSpectrumModelInitializer ()
   {
     NS_LOG_FUNCTION (this);
 
     Bands bands;
     BandInfo bi;
-    bi.fl = centerFreq - bandwidth/2;
-    bi.fh = centerFreq + bandwidth/2;
-    bi.fc = centerFreq;
+    bi.fl = m_centerFreq - m_bandwidth/2;
+    bi.fh = m_centerFreq + m_bandwidth/2;
+    bi.fc = m_centerFreq;
     bands.push_back (bi);
     g_snowSpectrumModel = Create<SpectrumModel> (bands);
   }
@@ -63,9 +65,11 @@ snowSpectrumValueHelper::~snowSpectrumValueHelper (void)
 }
 
 Ptr<SpectrumValue>
-snowSpectrumValueHelper::CreateTxPowerSpectralDensity (double txPower)
+snowSpectrumValueHelper::CreateTxPowerSpectralDensity (double txPower, double centerFreq)
 {
   NS_LOG_FUNCTION (this);
+  m_centerFreq = centerFreq;
+  snowSpectrumModelInitializer();
   Ptr<SpectrumValue> txPsd = Create <SpectrumValue> (g_snowSpectrumModel);
 
   // txPower is expressed in dBm. We must convert it into natural unit (W).
@@ -92,9 +96,11 @@ snowSpectrumValueHelper::CreateTxPowerSpectralDensity (double txPower)
 }
 
 Ptr<SpectrumValue>
-snowSpectrumValueHelper::CreateNoisePowerSpectralDensity ()
+snowSpectrumValueHelper::CreateNoisePowerSpectralDensity (double centerFreq)
 {
   NS_LOG_FUNCTION (this);
+  m_centerFreq = centerFreq;
+  snowSpectrumModelInitializer();
   Ptr<SpectrumValue> noisePsd = Create <SpectrumValue> (g_snowSpectrumModel);
 
   static const double BOLTZMANN = 1.3803e-23;
