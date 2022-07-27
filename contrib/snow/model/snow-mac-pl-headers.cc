@@ -36,7 +36,7 @@ NS_OBJECT_ENSURE_REGISTERED (BeaconPayloadHeader);
 TypeId
 BeaconPayloadHeader::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::BeaconPayloadHeader")
+  static TypeId tid = TypeId ("ns3::snowBeaconPayloadHeader")
     .SetParent<Header> ()
     .SetGroupName ("snow")
     .AddConstructor<BeaconPayloadHeader> ()
@@ -148,7 +148,7 @@ NS_OBJECT_ENSURE_REGISTERED (CommandPayloadHeader);
 TypeId
 CommandPayloadHeader::GetTypeId (void)
 {
-  static TypeId tid = TypeId ("ns3::CommandPayloadHeader")
+  static TypeId tid = TypeId ("ns3::snowCommandPayloadHeader")
     .SetParent<Header> ()
     .SetGroupName ("snow")
     .AddConstructor<CommandPayloadHeader> ()

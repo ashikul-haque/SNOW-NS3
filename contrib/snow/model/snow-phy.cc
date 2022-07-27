@@ -266,7 +266,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
     {
       // Update the average receive power during ED.
       Time now = Simulator::Now ();
-      m_edPower.averagePower += snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()  ) * (now - m_edPower.lastUpdate).GetTimeStep () / m_edPower.measurementLength.GetTimeStep ();
+      m_edPower.averagePower += snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd (), m_phyPIBAttributes.centerFreq) * (now - m_edPower.lastUpdate).GetTimeStep () / m_edPower.measurementLength.GetTimeStep ();
       m_edPower.lastUpdate = now;
     }
 
@@ -280,7 +280,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
       // Update peak power if CCA is in progress.
       if (!m_ccaRequest.IsExpired ())
         {
-          double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()  );
+          double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd (), m_phyPIBAttributes.centerFreq);
           if (m_ccaPeakPower < power)
             {
               m_ccaPeakPower = power;
@@ -313,12 +313,12 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
 
       // Add any incoming packet to the current interference before checking the
       // SINR.
-      NS_LOG_DEBUG (this << " receiving packet with power: " << 10 * log10 (snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd  )) + 30 << "dBm");
+      NS_LOG_DEBUG (this << " receiving packet with power: " << 10 * log10 (snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd, m_phyPIBAttributes.centerFreq)) + 30 << "dBm");
       m_signal->AddSignal (snowRxParams->psd);
       Ptr<SpectrumValue> interferenceAndNoise = m_signal->GetSignalPsd ();
       *interferenceAndNoise -= *snowRxParams->psd;
       *interferenceAndNoise += *m_noise;
-      double sinr = snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd  ) / snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise  );
+      double sinr = snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd, m_phyPIBAttributes.centerFreq) / snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise, m_phyPIBAttributes.centerFreq);
 
       // Std. 802.15.4-2006, appendix E, Figure E.2
       // At SNR < -5 the BER is less than 10e-1.
@@ -363,7 +363,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
   // Update peak power if CCA is in progress.
   if (!m_ccaRequest.IsExpired ())
     {
-      double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()  );
+      double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd (), m_phyPIBAttributes.centerFreq);
       if (m_ccaPeakPower < power)
         {
           m_ccaPeakPower = power;
@@ -397,7 +397,7 @@ snowPhy::CheckInterference (void)
           Ptr<SpectrumValue> interferenceAndNoise = m_signal->GetSignalPsd ();
           *interferenceAndNoise -= *currentRxParams->psd;
           *interferenceAndNoise += *m_noise;
-          double sinr = snowSpectrumValueHelper::TotalAvgPower (currentRxParams->psd  ) / snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise  );
+          double sinr = snowSpectrumValueHelper::TotalAvgPower (currentRxParams->psd, m_phyPIBAttributes.centerFreq) / snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise, m_phyPIBAttributes.centerFreq);
           double per = 1.0 - m_errorModel->GetChunkSuccessRate (sinr, chunkSize);
 
           // The LQI is the total packet success rate scaled to 0-255.
@@ -433,7 +433,7 @@ snowPhy::EndRx (Ptr<SpectrumSignalParameters> par)
     {
       // Update the average receive power during ED.
       Time now = Simulator::Now ();
-      m_edPower.averagePower += snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()  ) * (now - m_edPower.lastUpdate).GetTimeStep () / m_edPower.measurementLength.GetTimeStep ();
+      m_edPower.averagePower += snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd (), m_phyPIBAttributes.centerFreq) * (now - m_edPower.lastUpdate).GetTimeStep () / m_edPower.measurementLength.GetTimeStep ();
       m_edPower.lastUpdate = now;
     }
 
@@ -879,6 +879,7 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
       }
     case phyTransmitPower:
       {
+        //NS_LOG_DEBUG(attribute->phyTransmitPower);
         if (attribute->phyTransmitPower & 0xC0)
           {
             NS_LOG_LOGIC ("snowPhy::PlmeSetAttributeRequest error - can not change read-only attribute bits.");
@@ -1004,7 +1005,7 @@ snowPhy::EndEd (void)
 {
   NS_LOG_FUNCTION (this);
 
-  m_edPower.averagePower += snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()) * (Simulator::Now () - m_edPower.lastUpdate).GetTimeStep () / m_edPower.measurementLength.GetTimeStep ();
+  m_edPower.averagePower += snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd (), m_phyPIBAttributes.centerFreq) * (Simulator::Now () - m_edPower.lastUpdate).GetTimeStep () / m_edPower.measurementLength.GetTimeStep ();
 
   uint8_t energyLevel;
 
@@ -1038,7 +1039,7 @@ snowPhy::EndCca (void)
   snowPhyEnumeration sensedChannelState = SNOW_PHY_UNSPECIFIED;
 
   // Update peak power.
-  double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd ()  );
+  double power = snowSpectrumValueHelper::TotalAvgPower (m_signal->GetSignalPsd (), m_phyPIBAttributes.centerFreq);
   if (m_ccaPeakPower < power)
     {
       m_ccaPeakPower = power;

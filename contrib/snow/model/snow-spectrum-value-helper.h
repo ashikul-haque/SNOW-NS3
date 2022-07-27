@@ -59,7 +59,7 @@ public:
    * \param channel the channel number per IEEE802.15.4
    * \return total power (using composite trap. rule to numerally integrate)
    */
-  static double TotalAvgPower (Ptr<const SpectrumValue> psd);
+  static double TotalAvgPower (Ptr<const SpectrumValue> psd, double centerFreq);
 
 private:
   /**
