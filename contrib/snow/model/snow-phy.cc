@@ -128,7 +128,7 @@ snowPhy::snowPhy (void)
   m_edPower.measurementLength = Seconds (0.0);
 
   // default -110 dBm in W for 2.4 GHz
-  m_rxSensitivity = pow (10.0, -106.58 / 10.0) / 1000.0;
+  m_rxSensitivity = pow (10.0, -50.0 / 10.0) / 1000.0;
   snowSpectrumValueHelper psdHelper;
   m_txPsd = psdHelper.CreateTxPowerSpectralDensity (GetNominalTxPowerFromPib (m_phyPIBAttributes.phyTransmitPower), m_phyPIBAttributes.centerFreq);
   m_noise = psdHelper.CreateNoisePowerSpectralDensity (m_phyPIBAttributes.centerFreq);
@@ -875,6 +875,9 @@ snowPhy::PlmeSetAttributeRequest (snowPibAttributeIdentifier id,
     case centerFreq:
       {
         m_phyPIBAttributes.centerFreq = attribute->centerFreq;
+        snowSpectrumValueHelper psdHelper;
+        m_txPsd = psdHelper.CreateTxPowerSpectralDensity (GetNominalTxPowerFromPib (m_phyPIBAttributes.phyTransmitPower),
+                                                                                        m_phyPIBAttributes.centerFreq);
         break;
       }
     case phyTransmitPower:
