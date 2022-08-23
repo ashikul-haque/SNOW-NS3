@@ -54,6 +54,7 @@
 using namespace ns3;
  
 static uint32_t g_received = 0; 
+static uint32_t g_retry = 0; 
  
 NS_LOG_COMPONENT_DEFINE ("snowErrorDistancePlot");
  
@@ -62,29 +63,35 @@ snowErrorDistanceCallback (McpsDataIndicationParams params, Ptr<Packet> p)
 {
   g_received++;
 }
+
+static void
+snowRetryCallback (void)
+{
+  g_retry++;
+}
  
 int main (int argc, char *argv[])
 {
   std::ostringstream os;
   std::ofstream berfile ("snow-psr-distance.plt");
  
-  int minDistance = 1;
-  int maxDistance = 2000;  // meters
+  int minDistance = 2000;
+  int maxDistance = 2050;  // meters
   int increment = 1;
   int maxPackets = 1000;
   int packetSize = 20;
   double txPower = 0;
-  uint32_t channelNumber = 11;
+  double centerFreq = 500e6;
  
   CommandLine cmd (__FILE__);
  
   cmd.AddValue ("txPower", "transmit power (dBm)", txPower);
   cmd.AddValue ("packetSize", "packet (MSDU) size (bytes)", packetSize);
-  cmd.AddValue ("channelNumber", "channel number", channelNumber);
+  cmd.AddValue ("centerFreq", "channel number", centerFreq);
  
   cmd.Parse (argc, argv);
  
-  os << "Packet (MSDU) size = " << packetSize << " bytes; tx power = " << txPower << " dBm; channel = " << channelNumber;
+  os << "Packet (MSDU) size = " << packetSize << " bytes; tx power = " << txPower << " dBm; channel = " << centerFreq;
  
   Gnuplot psrplot = Gnuplot ("snow-psr-distance.eps");
   Gnuplot2dDataset psrdataset ("snow-psr-vs-distance");
@@ -97,7 +104,7 @@ int main (int argc, char *argv[])
   dev1->SetAddress (Mac16Address ("00:02"));
   Ptr<MultiModelSpectrumChannel> channel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<LogDistancePropagationLossModel> model = CreateObject<LogDistancePropagationLossModel> ();
-  model->SetPathLossExponent (3.1);
+  model->SetPathLossExponent (3.2);
   model->SetReference (1, 7.7);
   channel->AddPropagationLossModel (model);
   dev0->SetChannel (channel);
@@ -110,12 +117,16 @@ int main (int argc, char *argv[])
   dev1->GetPhy ()->SetMobility (mob1);
  
   snowSpectrumValueHelper svh;
-  Ptr<SpectrumValue> psd = svh.CreateTxPowerSpectralDensity (txPower, channelNumber);
+  Ptr<SpectrumValue> psd = svh.CreateTxPowerSpectralDensity (txPower, centerFreq);
   dev0->GetPhy ()->SetTxPowerSpectralDensity (psd);
  
   McpsDataIndicationCallback cb0;
   cb0 = MakeCallback (&snowErrorDistanceCallback);
   dev1->GetMac ()->SetMcpsDataIndicationCallback (cb0);
+
+  McpsDataRetryCallback cb1;
+  cb1 = MakeCallback (&snowRetryCallback);
+  dev0->GetMac ()->SetMcpsDataRetryCallback (cb1);
  
   McpsDataRequestParams params;
   params.m_srcAddrMode = SHORT_ADDR;
@@ -123,7 +134,7 @@ int main (int argc, char *argv[])
   params.m_dstPanId = 0;
   params.m_dstAddr = Mac16Address ("00:02");
   params.m_msduHandle = 0;
-  params.m_txOptions = 0;
+  params.m_txOptions = 1;
  
   Ptr<Packet> p;
   mob0->SetPosition (Vector (0,0,0));
@@ -139,8 +150,10 @@ int main (int argc, char *argv[])
         }
       Simulator::Run ();
       NS_LOG_DEBUG ("Received " << g_received << " packets for distance " << j);
-      psrdataset.Add (j, g_received / 1000.0);
+      NS_LOG_DEBUG ("Retry " << g_retry << " packets for distance " << j);
+      psrdataset.Add (j, g_retry / 1000.0);
       g_received = 0;
+      g_retry = 0;
       j += increment;
       mob1->SetPosition (Vector (j,0,0));
     }
@@ -150,8 +163,8 @@ int main (int argc, char *argv[])
   psrplot.SetTitle (os.str ());
   psrplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
   psrplot.SetLegend ("distance (m)", "Packet Success Rate (PSR)");
-  psrplot.SetExtra  ("set xrange [0:2000]\n\
-set yrange [0:1]\n\
+  psrplot.SetExtra  ("set xrange [2000:2500]\n\
+set yrange [0:3]\n\
 set grid\n\
 set style line 1 linewidth 5\n\
 set style increment user");
