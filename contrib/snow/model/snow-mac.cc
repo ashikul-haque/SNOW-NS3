@@ -230,6 +230,7 @@ snowMac::DoDispose ()
   m_phy = 0;
   m_mcpsDataIndicationCallback = MakeNullCallback< void, McpsDataIndicationParams, Ptr<Packet> > ();
   m_mcpsDataConfirmCallback = MakeNullCallback< void, McpsDataConfirmParams > ();
+  m_mcpsDataRetryCallback = MakeNullCallback< void > ();
 
   m_beaconEvent.Cancel ();
 
@@ -403,6 +404,7 @@ snowMac::McpsDataRequest (McpsDataRequestParams params, Ptr<Packet> p)
             }
           else
             {
+              NS_LOG_LOGIC("snowMac::McpsDataRequest:: set ACK for " << shortAddr << " ");
               macHdr.SetAckReq ();
             }
         }
@@ -991,6 +993,11 @@ snowMac::SetMcpsDataConfirmCallback (McpsDataConfirmCallback c)
   m_mcpsDataConfirmCallback = c;
 }
 
+void snowMac::SetMcpsDataRetryCallback (McpsDataRetryCallback c)
+{
+  m_mcpsDataRetryCallback = c;
+}
+
 void
 snowMac::SetMlmeStartConfirmCallback (MlmeStartConfirmCallback c)
 {
@@ -1524,6 +1531,12 @@ snowMac::PrepareRetransmission (void)
   else
     {
       m_retransmission++;
+      NS_LOG_INFO("retransmission count");
+      if (!m_mcpsDataRetryCallback.IsNull ())
+      {
+        m_mcpsDataRetryCallback();
+      }
+
       m_numCsmacaRetry += m_csmaCa->GetNB () + 1;
       // Start next CCA process for this packet.
       return true;

@@ -75,8 +75,8 @@ int main (int argc, char *argv[])
   std::ostringstream os;
   std::ofstream berfile ("snow-psr-distance.plt");
  
-  int minDistance = 2000;
-  int maxDistance = 2050;  // meters
+  int minDistance = 1;
+  int maxDistance = 2100;  // meters
   int increment = 1;
   int maxPackets = 1000;
   int packetSize = 20;
@@ -163,7 +163,7 @@ int main (int argc, char *argv[])
   psrplot.SetTitle (os.str ());
   psrplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
   psrplot.SetLegend ("distance (m)", "Packet Success Rate (PSR)");
-  psrplot.SetExtra  ("set xrange [2000:2500]\n\
+  psrplot.SetExtra  ("set xrange [1:2100]\n\
 set yrange [0:3]\n\
 set grid\n\
 set style line 1 linewidth 5\n\

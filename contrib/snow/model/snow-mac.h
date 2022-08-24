@@ -394,6 +394,8 @@ struct MlmePollConfirmParams
  * transmission request
  */
 typedef Callback<void, McpsDataConfirmParams> McpsDataConfirmCallback;
+
+typedef Callback<void> McpsDataRetryCallback;
 /**
  * \ingroup snow
  *
@@ -613,6 +615,8 @@ public:
    * \param c the callback
    */
   void SetMcpsDataConfirmCallback (McpsDataConfirmCallback c);
+
+  void SetMcpsDataRetryCallback (McpsDataRetryCallback c);
   /**
     * Set the callback for the confirmation of a data transmission request.
     * The callback implements MLME-START.confirm SAP of IEEE 802.15.4-2006,
@@ -1254,12 +1258,16 @@ private:
    * See IEEE 802.15.4-2006, section 7.1.1.3.
    */
   McpsDataIndicationCallback m_mcpsDataIndicationCallback;
+
+
   /**
    * This callback is used to report data transmission request status to the
    * upper layers.
    * See IEEE 802.15.4-2006, section 7.1.1.2.
    */
   McpsDataConfirmCallback m_mcpsDataConfirmCallback;
+
+  McpsDataRetryCallback m_mcpsDataRetryCallback;
   /**
    * The current state of the MAC layer.
    */
