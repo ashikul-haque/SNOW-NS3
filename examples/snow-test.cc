@@ -45,11 +45,20 @@
 #include <ns3/abort.h>
 #include <ns3/command-line.h>
 #include <ns3/gnuplot.h>
+#include <ns3/mobility-module.h>
+#include <ns3/spectrum-helper.h>
+#include <ns3/tv-spectrum-transmitter-helper.h>
+#include <ns3/spectrum-analyzer-helper.h>
+#include <ns3/core-module.h>
+
+
+
  
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
+#include <stdlib.h>
  
 using namespace ns3;
  
@@ -74,8 +83,9 @@ int main (int argc, char *argv[])
 {
   std::ostringstream os;
   std::ofstream berfile ("snow-psr-distance.plt");
+  std::ofstream berfile1 ("snow-retry-distance.plt");
  
-  int minDistance = 1;
+  int minDistance = 1800;
   int maxDistance = 2100;  // meters
   int increment = 1;
   int maxPackets = 1000;
@@ -95,6 +105,35 @@ int main (int argc, char *argv[])
  
   Gnuplot psrplot = Gnuplot ("snow-psr-distance.eps");
   Gnuplot2dDataset psrdataset ("snow-psr-vs-distance");
+  Gnuplot retryplot = Gnuplot ("snow-retry-distance.eps");
+  Gnuplot2dDataset retrydataset ("snow-retry-vs-distance");
+
+  Ptr<MultiModelSpectrumChannel> channel = CreateObject<MultiModelSpectrumChannel> ();
+  Ptr<LogDistancePropagationLossModel> model = CreateObject<LogDistancePropagationLossModel> ();
+  model->SetPathLossExponent (3.2);
+  model->SetReference (1, 7.7);
+  channel->AddPropagationLossModel (model);
+
+  NodeContainer tvTransmitterNodes;
+  tvTransmitterNodes.Create (1);
+  MobilityHelper mobility;
+  Ptr<ListPositionAllocator> nodePositionList = CreateObject<ListPositionAllocator> ();
+  nodePositionList->Add (Vector (500.0, 0.0, 0.0));
+  mobility.SetPositionAllocator (nodePositionList);
+  //mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+  mobility.Install (tvTransmitterNodes);
+  // TV transmitter setup
+  TvSpectrumTransmitterHelper tvTransHelper;
+  tvTransHelper.SetChannel (channel);
+  tvTransHelper.SetAttribute ("StartFrequency", DoubleValue (497e6));
+  tvTransHelper.SetAttribute ("ChannelBandwidth", DoubleValue (6e6));
+  tvTransHelper.SetAttribute ("StartingTime", TimeValue (Seconds (0)));
+  tvTransHelper.SetAttribute ("TransmitDuration", TimeValue (Minutes (100.0)));
+  // 22.22 dBm/Hz from 1000 kW ERP transmit power, flat 6 MHz PSD spectrum assumed for this approximation
+  tvTransHelper.SetAttribute ("BasePsd", DoubleValue (-10));
+  tvTransHelper.SetAttribute ("TvType", EnumValue (TvSpectrumTransmitter::TVTYPE_8VSB));
+  tvTransHelper.SetAttribute ("Antenna", StringValue ("ns3::IsotropicAntennaModel"));
+
  
   Ptr<Node> n0 = CreateObject <Node> ();
   Ptr<Node> n1 = CreateObject <Node> ();
@@ -102,11 +141,8 @@ int main (int argc, char *argv[])
   Ptr<snowNetDevice> dev1 = CreateObject<snowNetDevice> ();
   dev0->SetAddress (Mac16Address ("00:01"));
   dev1->SetAddress (Mac16Address ("00:02"));
-  Ptr<MultiModelSpectrumChannel> channel = CreateObject<MultiModelSpectrumChannel> ();
-  Ptr<LogDistancePropagationLossModel> model = CreateObject<LogDistancePropagationLossModel> ();
-  model->SetPathLossExponent (3.2);
-  model->SetReference (1, 7.7);
-  channel->AddPropagationLossModel (model);
+  
+
   dev0->SetChannel (channel);
   dev1->SetChannel (channel);
   n0->AddDevice (dev0);
@@ -148,10 +184,12 @@ int main (int argc, char *argv[])
                                &snowMac::McpsDataRequest,
                                dev0->GetMac (), params, p);
         }
+      tvTransHelper.InstallAdjacent (tvTransmitterNodes);
       Simulator::Run ();
       NS_LOG_DEBUG ("Received " << g_received << " packets for distance " << j);
       NS_LOG_DEBUG ("Retry " << g_retry << " packets for distance " << j);
-      psrdataset.Add (j, g_retry / 1000.0);
+      psrdataset.Add (j, g_received / 1000.0);
+      retrydataset.Add (j, g_retry / 1000.0);
       g_received = 0;
       g_retry = 0;
       j += increment;
@@ -163,13 +201,26 @@ int main (int argc, char *argv[])
   psrplot.SetTitle (os.str ());
   psrplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
   psrplot.SetLegend ("distance (m)", "Packet Success Rate (PSR)");
-  psrplot.SetExtra  ("set xrange [1:2100]\n\
-set yrange [0:3]\n\
+  psrplot.SetExtra  ("set xrange [1800:2100]\n\
+set yrange [0:1]\n\
 set grid\n\
 set style line 1 linewidth 5\n\
 set style increment user");
   psrplot.GenerateOutput (berfile);
   berfile.close ();
+
+  retryplot.AddDataset (retrydataset);
+ 
+  retryplot.SetTitle (os.str ());
+  retryplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  retryplot.SetLegend ("distance (m)", "Packet Retry Rate (PRR)");
+  retryplot.SetExtra  ("set xrange [1800:2100]\n\
+set yrange [0:3]\n\
+set grid\n\
+set style line 1 linewidth 5\n\
+set style increment user");
+  retryplot.GenerateOutput (berfile1);
+  berfile1.close ();
  
   Simulator::Destroy ();
   return 0;
