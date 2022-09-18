@@ -50,6 +50,9 @@
 #include <ns3/tv-spectrum-transmitter-helper.h>
 #include <ns3/spectrum-analyzer-helper.h>
 #include <ns3/core-module.h>
+#include <ns3/spectrum-channel.h>
+#include <ns3/traced-value.h>
+#include <ns3/trace-source-accessor.h>
 
 
 
@@ -64,12 +67,39 @@ using namespace ns3;
  
 static uint32_t g_received = 0; 
 static uint32_t g_retry = 0; 
+double dbmThreshold = 15;
+static double alpha_t;
+double noisedbm = -233.98;
+Ptr<ConstantPositionMobilityModel> mob0 = CreateObject<ConstantPositionMobilityModel> ();
+Ptr<ConstantPositionMobilityModel> mob1 = CreateObject<ConstantPositionMobilityModel> ();
  
 NS_LOG_COMPONENT_DEFINE ("snowErrorDistancePlot");
- 
+
+double dbm2mw(double dbm){
+  return pow(10,(dbm/10))/1000.0;
+}
+
+static void gainCallback (Ptr<const MobilityModel> txMobility, Ptr<const MobilityModel> rxMobility,
+                   double txAntennaGain, double rxAntennaGain, double propagationGain,
+                   double pathloss)
+{
+  if(txMobility==mob1 && rxMobility==mob0){
+    alpha_t=propagationGain;
+    //NS_LOG_DEBUG("tx position "<<txMobility->GetPosition()<<" rx position: "<<rxMobility->GetPosition());
+    double t = dbm2mw(alpha_t);
+    NS_LOG_DEBUG("new alpha value "<<t<< "  "<<alpha_t);
+  }
+  else{
+    double t = dbm2mw(alpha_t);
+    NS_LOG_DEBUG("other alpha value "<<t<< "  "<<alpha_t);
+  }
+}
+
 static void
 snowErrorDistanceCallback (McpsDataIndicationParams params, Ptr<Packet> p)
 {
+  NS_LOG_DEBUG("sequence "<<unsigned(params.m_dsn));
+  //push all seq number and find if that already exists;
   g_received++;
 }
 
@@ -78,19 +108,37 @@ snowRetryCallback (void)
 {
   g_retry++;
 }
- 
+
+double transmissionPower(double alpha, double jammer_energy, double noise, double prev_energy){
+  double energy;
+  double beta = ((jammer_energy+noise)*(jammer_energy+noise))/(alpha*prev_energy);
+  if(noise<=(alpha/2)){
+    energy = alpha/(4*beta);
+  }
+  else if( noise>(alpha/2) && noise<=alpha){
+    energy = (noise*noise)/(alpha*beta);
+  }
+  else if(noise>alpha){
+    energy = -1; //code for not transmission
+  }
+  if(energy>dbm2mw(dbmThreshold)){
+    return -2; //code for hopping
+  }
+  return energy;
+}
+
 int main (int argc, char *argv[])
 {
   std::ostringstream os;
   std::ofstream berfile ("snow-psr-distance.plt");
   std::ofstream berfile1 ("snow-retry-distance.plt");
  
-  int minDistance = 1800;
-  int maxDistance = 2100;  // meters
-  int increment = 1;
-  int maxPackets = 1000;
+  int minDistance = 300;
+  //int maxDistance = 1100;  // meters
+  //int increment = 1;
+  //int maxPackets = 1000;
   int packetSize = 20;
-  double txPower = 0;
+  double txPower = 1;
   double centerFreq = 500e6;
  
   CommandLine cmd (__FILE__);
@@ -110,7 +158,7 @@ int main (int argc, char *argv[])
 
   Ptr<MultiModelSpectrumChannel> channel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<LogDistancePropagationLossModel> model = CreateObject<LogDistancePropagationLossModel> ();
-  model->SetPathLossExponent (3.2);
+  model->SetPathLossExponent (3.0);
   model->SetReference (1, 7.7);
   channel->AddPropagationLossModel (model);
 
@@ -118,7 +166,7 @@ int main (int argc, char *argv[])
   tvTransmitterNodes.Create (1);
   MobilityHelper mobility;
   Ptr<ListPositionAllocator> nodePositionList = CreateObject<ListPositionAllocator> ();
-  nodePositionList->Add (Vector (500.0, 0.0, 0.0));
+  nodePositionList->Add (Vector (1800.0, 0.0, 0.0));
   mobility.SetPositionAllocator (nodePositionList);
   //mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (tvTransmitterNodes);
@@ -130,7 +178,7 @@ int main (int argc, char *argv[])
   tvTransHelper.SetAttribute ("StartingTime", TimeValue (Seconds (0)));
   tvTransHelper.SetAttribute ("TransmitDuration", TimeValue (Minutes (100.0)));
   // 22.22 dBm/Hz from 1000 kW ERP transmit power, flat 6 MHz PSD spectrum assumed for this approximation
-  tvTransHelper.SetAttribute ("BasePsd", DoubleValue (-10));
+  tvTransHelper.SetAttribute ("BasePsd", DoubleValue (-500));
   tvTransHelper.SetAttribute ("TvType", EnumValue (TvSpectrumTransmitter::TVTYPE_8VSB));
   tvTransHelper.SetAttribute ("Antenna", StringValue ("ns3::IsotropicAntennaModel"));
 
@@ -147,10 +195,13 @@ int main (int argc, char *argv[])
   dev1->SetChannel (channel);
   n0->AddDevice (dev0);
   n1->AddDevice (dev1);
-  Ptr<ConstantPositionMobilityModel> mob0 = CreateObject<ConstantPositionMobilityModel> ();
   dev0->GetPhy ()->SetMobility (mob0);
-  Ptr<ConstantPositionMobilityModel> mob1 = CreateObject<ConstantPositionMobilityModel> ();
   dev1->GetPhy ()->SetMobility (mob1);
+
+  mob0->SetPosition (Vector (0,0,0));
+  mob1->SetPosition (Vector (minDistance,0,0));
+  channel->TraceConnectWithoutContext("Gain",MakeCallback(&gainCallback));
+
  
   snowSpectrumValueHelper svh;
   Ptr<SpectrumValue> psd = svh.CreateTxPowerSpectralDensity (txPower, centerFreq);
@@ -168,12 +219,20 @@ int main (int argc, char *argv[])
   params.m_srcAddrMode = SHORT_ADDR;
   params.m_dstAddrMode = SHORT_ADDR;
   params.m_dstPanId = 0;
-  params.m_dstAddr = Mac16Address ("00:02");
+  params.m_dstAddr = Mac16Address ("00:01");
   params.m_msduHandle = 0;
   params.m_txOptions = 1;
  
   Ptr<Packet> p;
-  mob0->SetPosition (Vector (0,0,0));
+  p = Create<Packet> (packetSize);
+  Simulator::Schedule (Seconds (0), &snowMac::McpsDataRequest, dev1->GetMac (), params, p);
+  tvTransHelper.InstallAdjacent (tvTransmitterNodes);
+  Simulator::Run ();
+  NS_LOG_DEBUG ("Received " << g_received << " packets for distance ");
+  NS_LOG_DEBUG ("Retry " << g_retry << " packets for distance ");
+
+  // distance variation.
+  /*mob0->SetPosition (Vector (0,0,0));
   mob1->SetPosition (Vector (minDistance,0,0));
   for (int j = minDistance; j < maxDistance;  )
     {
@@ -194,9 +253,17 @@ int main (int argc, char *argv[])
       g_retry = 0;
       j += increment;
       mob1->SetPosition (Vector (j,0,0));
-    }
- 
-  psrplot.AddDataset (psrdataset);
+    }*/
+
+  //transmission power variation of jammer. show effect on throughput, prr, energy consumption
+
+
+  //nodes will also increase power and play game. show effect for these as above
+
+  //bs will move to new channel and show effect for above parameters
+
+  //gnuplot
+  /*psrplot.AddDataset (psrdataset);
  
   psrplot.SetTitle (os.str ());
   psrplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
@@ -220,7 +287,7 @@ set grid\n\
 set style line 1 linewidth 5\n\
 set style increment user");
   retryplot.GenerateOutput (berfile1);
-  berfile1.close ();
+  berfile1.close ();*/
  
   Simulator::Destroy ();
   return 0;
