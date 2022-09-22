@@ -166,7 +166,7 @@ snowMac::snowMac ()
   m_associationStatus = ASSOCIATED;
   m_selfExt = Mac64Address::Allocate ();
   m_macPromiscuousMode = false;
-  m_macMaxFrameRetries = 3;
+  m_macMaxFrameRetries = 2;
   m_retransmission = 0;
   m_numCsmacaRetry = 0;
   m_txPkt = 0;

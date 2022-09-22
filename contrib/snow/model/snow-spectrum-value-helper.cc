@@ -87,14 +87,14 @@ snowSpectrumValueHelper::CreateTxPowerSpectralDensity (double txPower, double ce
   Ptr<SpectrumValue> txPsd = Create <SpectrumValue> (g_snowSpectrumModel);
 
   // txPower is expressed in dBm. We must convert it into natural unit (W).
-  txPower = pow (10., (txPower - 30) / 10);
+  txPower = pow (10., (txPower-30) / 10);
 
   // The effective occupied bandwidth of the signal is modelled to be 2 MHz.
   // 99.5% of power is within +/- 1MHz of center frequency, and 0.5% is outside.
   // There are 5 bands containing signal power.  The middle (center) band
   // contains half of the power.  The two inner side bands contain 49.5%.
   // The two outer side bands contain roughly 0.5%.
-  double txPowerDensity = txPower / 2.0e6;
+  double txPowerDensity = txPower;
 
 
   // The channel assignment is in section 6.1.2.1
@@ -132,6 +132,31 @@ snowSpectrumValueHelper::CreateNoisePowerSpectralDensity (double centerFreq)
   return noisePsd;
 }
 
+Ptr<SpectrumValue>
+snowSpectrumValueHelper::CreateJammerPowerSpectralDensity (double txPower, double centerFreq)
+{
+  Ptr<SpectrumValue> txPsd = Create <SpectrumValue> (g_snowSpectrumModel);
+
+  txPower = pow (10., (txPower-30) / 10);
+
+  double txPowerDensity = txPower;
+  
+  int channel = (centerFreq-470e6)/(100e3);
+
+  //int start = channel-30;
+  //int end = channel+30;
+
+  (*txPsd)[channel] = txPowerDensity;
+
+  //NS_LOG_DEBUG("Channel number: " << channel);
+
+  /*for(int i=start;i<=end;i++){
+    (*txPsd)[i] = txPowerDensity; // center
+  }*/
+
+  return txPsd;
+}
+
 double
 snowSpectrumValueHelper::TotalAvgPower (Ptr<const SpectrumValue> psd, double centerFreq)
 {
@@ -145,7 +170,7 @@ snowSpectrumValueHelper::TotalAvgPower (Ptr<const SpectrumValue> psd, double cen
 
   int channel = (centerFreq-470e6)/(100e3);
   totalAvgPower = (*psd)[channel];
-  totalAvgPower *= 1.0e6;
+  //totalAvgPower *= 1.0e6;
 
   return totalAvgPower;
 }

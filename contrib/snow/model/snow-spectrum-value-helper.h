@@ -52,6 +52,8 @@ public:
    */
   Ptr<SpectrumValue> CreateNoisePowerSpectralDensity (double centerFreq);
 
+  Ptr<SpectrumValue> CreateJammerPowerSpectralDensity (double txPower, double centerFreq);
+
   /**
    * \brief total average power of the signal is the integral of the PSD using
    * the limits of the given channel

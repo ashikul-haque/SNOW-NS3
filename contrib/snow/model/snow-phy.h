@@ -181,6 +181,8 @@ typedef Callback< void, uint32_t, Ptr<Packet>, uint8_t > PdDataIndicationCallbac
  */
 typedef Callback< void, snowPhyEnumeration > PdDataConfirmCallback;
 
+typedef Callback< void, double, double > InterferenceCallback; 
+
 /**
  * \ingroup snow
  *
@@ -352,6 +354,12 @@ public:
    */
   void PlmeGetAttributeRequest (snowPibAttributeIdentifier id);
 
+  void AddJamming (Ptr<const SpectrumValue> m_jammer);
+
+  void RemoveJamming (Ptr<const SpectrumValue> m_jammer);
+
+  //double CheckJamming ();
+
   /**
    *  IEEE 802.15.4-2006 section 6.2.2.7
    *  PLME-SET-TRX-STATE.request
@@ -384,6 +392,8 @@ public:
    * @param c the callback
    */
   void SetPdDataConfirmCallback (PdDataConfirmCallback c);
+
+  void SetInterferenceCallback (InterferenceCallback c);
 
   /**
    * set the callback for the end of a CCA, as part of the
@@ -753,6 +763,8 @@ private:
    */
   PdDataConfirmCallback m_pdDataConfirmCallback;
 
+  InterferenceCallback m_interferenceCallback;
+
   /**
    * This callback is used to report CCA status to the MAC or CSMA/CA.
    * See IEEE 802.15.4-2006, section 6.2.2.2.
@@ -809,6 +821,8 @@ private:
    * considered noise.
    */
   Ptr<snowInterferenceHelper> m_signal;
+
+  
 
   /**
    * Timestamp of the last calculation of the PER of a packet currently received.

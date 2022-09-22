@@ -171,6 +171,7 @@ snowPhy::DoDispose (void)
   m_errorModel = 0;
   m_pdDataIndicationCallback = MakeNullCallback< void, uint32_t, Ptr<Packet>, uint8_t > ();
   m_pdDataConfirmCallback = MakeNullCallback< void, snowPhyEnumeration > ();
+  m_interferenceCallback = MakeNullCallback< void, double, double > ();
   m_plmeCcaConfirmCallback = MakeNullCallback< void, snowPhyEnumeration > ();
   m_plmeEdConfirmCallback = MakeNullCallback< void, snowPhyEnumeration,uint8_t > ();
   m_plmeGetAttributeConfirmCallback = MakeNullCallback< void, snowPhyEnumeration, snowPibAttributeIdentifier, snowPhyPibAttributes* > ();
@@ -318,8 +319,13 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
       Ptr<SpectrumValue> interferenceAndNoise = m_signal->GetSignalPsd ();
       *interferenceAndNoise -= *snowRxParams->psd;
       *interferenceAndNoise += *m_noise;
-      double sinr = snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd, m_phyPIBAttributes.centerFreq) / snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise, m_phyPIBAttributes.centerFreq);
+      if (!m_interferenceCallback.IsNull ())
+      {
+        m_interferenceCallback(snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd, m_phyPIBAttributes.centerFreq), snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise, m_phyPIBAttributes.centerFreq));
+      }
 
+      double sinr = snowSpectrumValueHelper::TotalAvgPower (snowRxParams->psd, m_phyPIBAttributes.centerFreq) / snowSpectrumValueHelper::TotalAvgPower (interferenceAndNoise, m_phyPIBAttributes.centerFreq);
+      
       // Std. 802.15.4-2006, appendix E, Figure E.2
       // At SNR < -5 the BER is less than 10e-1.
       // It's useless to even *try* to decode the packet.
@@ -501,6 +507,8 @@ snowPhy::EndRx (Ptr<SpectrumSignalParameters> par)
         }
     }
 }
+
+
 
 void
 snowPhy::PdDataRequest (const uint32_t psduLength, Ptr<Packet> p)
@@ -854,6 +862,19 @@ snowPhy::PlmeSetTRXStateRequest (snowPhyEnumeration state)
   NS_FATAL_ERROR ("Unexpected transition from state " << m_trxState << " to state " << state);
 }
 
+void
+snowPhy::AddJamming (Ptr<const SpectrumValue> m_jammer)
+{
+  m_signal->AddSignal(m_jammer);
+  //m_signal = Create<snowInterferenceHelper> (m_jammer->GetSpectrumModel ());
+}
+
+void 
+snowPhy::RemoveJamming (Ptr<const SpectrumValue> m_jammer)
+{
+  m_signal->RemoveSignal(m_jammer);
+}
+
 bool
 snowPhy::ChannelSupported (uint8_t channel)
 {
@@ -933,6 +954,13 @@ snowPhy::SetPdDataConfirmCallback (PdDataConfirmCallback c)
 {
   NS_LOG_FUNCTION (this);
   m_pdDataConfirmCallback = c;
+}
+
+void
+snowPhy::SetInterferenceCallback (InterferenceCallback c)
+{
+  NS_LOG_FUNCTION (this);
+  m_interferenceCallback = c;
 }
 
 void
