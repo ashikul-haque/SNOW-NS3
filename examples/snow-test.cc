@@ -69,8 +69,8 @@
  
 using namespace ns3;
  
-static uint32_t g_received = 0; 
-static uint32_t g_retry = 0;
+static int g_received = 0; 
+static int g_retry = 0;
 static double signal=0.0;
 static double interference=0.0;
 double dbmThreshold = 15;
@@ -85,12 +85,21 @@ Ptr<const SpectrumValue> m_jammer;
 double jammer_pathloss = 0;
 double hoppingFreq = 500e6;
 double jammerHopTime = 0.1;
+int transmission = 1;
+int jammerWaitTime = 10;
+int bsWaitTime = 20;
+int jammerFound = 0;
+double jammerEnergymw = 72e6; //20 wh
 TvSpectrumTransmitterHelper tvTransHelper;
  
 NS_LOG_COMPONENT_DEFINE ("snowErrorDistancePlot");
 
 double dbm2w(double dbm){
   return pow(10.,(dbm-30)/10);
+}
+
+double dbm2mw(double dbm){
+  return pow(10., dbm/10);
 }
 
 double w2dbm(double dbm){
@@ -237,25 +246,7 @@ double transmissionPowerGame(double prev_energy, double jammer, int mode=2){
     energy = alpha/(4*beta);
     return energy;
   }
-  //NS_LOG_DEBUG("jammer energy "<<w2dbm(jammer_energy));
-  //double beta = ((jammer_energy+noise)*(jammer_energy+noise))/(alpha*prev_energy);
-  /*double beta = ((jammer_energy+noise)*(jammer_energy+noise))/(alpha*prev_energy);
-  //double beta = (jammer_energy+noise)/jammer;
-  NS_LOG_DEBUG("beta: "<<beta<<" alpha: "<<alpha);
-  if(noise<=(alpha/2)){
-    energy = alpha/(4*beta);
-    //energy = (4*beta)/alpha;
-  }*/
-  /*else if( noise>(alpha/2) && noise<=alpha){
-    energy = (noise*noise)/(alpha*beta);
-  }
-  else if(noise>alpha){
-    energy = -1000; //code for not transmission
-  }
-  if(energy>dbm2w(dbmThreshold)){
-    return -2000; //code for hopping
-  }*/
-  //NS_LOG_DEBUG("jammer energy "<<w2dbm(interference)<<" my energy "<<w2dbm(prev_energy*alpha));
+  
   else{
     double gap = -2.0;
     if((signal+gap) > interference)
@@ -300,16 +291,36 @@ void findBS(void)
 {
   auto begin = std::chrono::high_resolution_clock::now();
   while(1){
-    usleep(jammerHopTime * 1000000);
-    int n=randomNumber(0,52);
-    double searchF = (n*6 + 470)*1e6;
+    usleep(jammerHopTime * 1000000); //time needed for hopping
+    int n=randomNumber(0,52); //selecting a channel randomly for hopping
+    double searchF = (n*6 + 470)*1e6; //that channels frequency
+    NS_LOG_INFO("Jammer is in freq: "<< searchF);
     if(searchF==hoppingFreq){
+      jammerFound = 1;
+      NS_LOG_INFO("Jammer is in BS channel");
+    }
+    int d = randomNumber(0,1);
+    if(searchF==hoppingFreq && transmission==1){
+      NS_LOG_INFO("Jammer has detected BS and jamming");
       tvTransHelper.SetAttribute ("StartFrequency", DoubleValue (searchF-3e6));
       auto end = std::chrono::high_resolution_clock::now();
       auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
       NS_LOG_DEBUG("Time to find BS: "<<elapsed.count() * 1e-9);
       return;
     }
+    if(d==1){
+      NS_LOG_INFO("Jammer is waiting in the channel");
+      usleep(1000000*jammerWaitTime);
+    }
+    if(searchF==hoppingFreq && transmission==1){
+      NS_LOG_INFO("Jammer has detected BS and jamming");
+      tvTransHelper.SetAttribute ("StartFrequency", DoubleValue (searchF-3e6));
+      auto end = std::chrono::high_resolution_clock::now();
+      auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin);
+      NS_LOG_DEBUG("Time to find BS: "<<elapsed.count() * 1e-9);
+      return;
+    }
+    jammerFound = 0;
   }
 
 }
@@ -334,18 +345,22 @@ double hoppingGame(double currentFreq){
 int main (int argc, char *argv[])
 {
   std::ostringstream os;
-  std::ofstream berfile ("snow-psr-distance.plt");
-  std::ofstream berfile1 ("snow-retry-distance.plt");
+  std::ofstream berfile ("../two_fold_bs_wait_time_20/snow-time-vs-prr.plt");
+  std::ofstream berfile1 ("../two_fold_bs_wait_time_20/snow-time-vs-tx.plt");
+  std::ofstream berfile2 ("../two_fold_bs_wait_time_20/snow-time-vs-jammingTX.plt");
+  std::ofstream berfile3 ("../two_fold_bs_wait_time_20/snow-time-vs-epp.plt");
+  std::ofstream berfile4 ("../two_fold_bs_wait_time_20/snow-time-vs-jammerEnergy.plt");
+  std::ofstream berfile5("../two_fold_bs_wait_time_20/snow-time-vs-throughput.plt");
  
   //int minDistance = 300;
   //int maxDistance = 1100;  // meters
   int increment = 1;
   int maxPackets = 1000;
-  int packetSize = 20;
+  int packetSize = 40;
   double txPower = -20.0;
   double centerF = 500e6;
   double minJammingPower = -20.0;
-  double maxJammingPower = 1000.0;
+  //double maxJammingPower = 1000.0;
   mobJ->SetPosition (Vector (700.0,0,0));
   CommandLine cmd (__FILE__);
  
@@ -355,12 +370,20 @@ int main (int argc, char *argv[])
  
   cmd.Parse (argc, argv);
  
-  os << "Packet (MSDU) size = " << packetSize << " bytes; tx power = " << txPower << " dBm; channel = " << centerF;
+  os << "Jammer wait time: "<<jammerWaitTime<<" Jammer hop time: "<<jammerHopTime<<" bs wait time: "<<bsWaitTime<<" Greedy";
  
-  Gnuplot psrplot = Gnuplot ("snow-psr-distance.eps");
-  Gnuplot2dDataset psrdataset ("snow-psr-vs-jamming-power");
-  Gnuplot retryplot = Gnuplot ("snow-retry-distance.eps");
-  Gnuplot2dDataset retrydataset ("snow-retry-vs-distance");
+  Gnuplot prrplot = Gnuplot ("snow-time-vs-prr.eps");
+  Gnuplot2dDataset prrdataset ("snow-time-vs-prr");
+  Gnuplot txplot = Gnuplot ("snow-time-vs-tx.eps");
+  Gnuplot2dDataset txdataset ("snow-time-vs-tx");
+  Gnuplot jammertxplot = Gnuplot ("snow-time-vs-jammingTX.eps");
+  Gnuplot2dDataset jammertxdataset ("snow-time-vs-jammingTX");
+  Gnuplot eppplot = Gnuplot ("snow-time-vs-epp.eps");
+  Gnuplot2dDataset eppdataset ("snow-time-vs-epp");
+  Gnuplot jammerenergyplot = Gnuplot ("snow-time-vs-jammerEnergy.eps");
+  Gnuplot2dDataset jammerenergydataset ("snow-time-vs-jammerEnergy");
+  Gnuplot throughputplot = Gnuplot ("snow-time-vs-throughput.eps");
+  Gnuplot2dDataset throughputdataset ("snow-time-vs-throughput");
 
   Ptr<MultiModelSpectrumChannel> channel = CreateObject<MultiModelSpectrumChannel> ();
   Ptr<LogDistancePropagationLossModel> model = CreateObject<LogDistancePropagationLossModel> ();
@@ -436,13 +459,22 @@ int main (int argc, char *argv[])
   //tvTransHelper.InstallAdjacent (tvTransmitterNodes);
 
   Ptr<Packet> p;
-  int gameMode = 1;
+  int gameMode = -1;
+  auto begin = std::chrono::high_resolution_clock::now();
+  
   NS_LOG_DEBUG(hoppingFreq);
-  int jumpLoop = -1;
-  for (int j = minJammingPower; j <= maxJammingPower;  )
+  //int jumpLoop = -1;
+  //j <= maxJammingPower
+  auto timer = std::chrono::high_resolution_clock::now();
+  int packetCount=0;
+  double packetTime = 0;
+  int testHopOnly=0;
+  for (int j = minJammingPower;;  )
     {
       //NS_LOG_DEBUG("jammer path loss "<<jammer_pathloss);
-      if(gameMode==1){
+      //NS_LOG_INFO("value of j: "<<j);
+      /*if(gameMode==1){
+        NS_LOG_DEBUG("Game mode 1");
         if(j>minJammingPower){
           double newTx = transmissionPowerGame(txPower, j-1);
           if(newTx<=15.0){
@@ -455,45 +487,147 @@ int main (int argc, char *argv[])
             NS_LOG_DEBUG("Adopting hopping game");
           }
         }
+      }*/
+
+      if(gameMode==1){
+        NS_LOG_DEBUG("Game mode 1");
+        double newTx = transmissionPowerGame(txPower, j-1);
+        if(newTx<=15.0){
+          txPower = newTx;
+          setTxPower(txPower,centerF);
+          gameMode=-1;
+          NS_LOG_DEBUG("new transmission power:"<<newTx);
+        }
+        else{
+          gameMode=2;
+          NS_LOG_DEBUG("Adopting hopping game");
+        }
       }
 
       if(gameMode==2){
+        NS_LOG_DEBUG("Game mode 2");
         hoppingFreq = hoppingGame(hoppingFreq);
-        jumpLoop = j;
-        gameMode=3; //have hopped
+        begin = std::chrono::high_resolution_clock::now();
+        //jumpLoop = j;
+        //gameMode=3; //have hopped
         txPower = -20;
+        transmission = 0;
+        std::thread th1(findBS);
+        th1.detach();
+        gameMode=0;
       }
 
-      if(gameMode==3 && j==jumpLoop+2){
+      /*if(gameMode==3 && j==jumpLoop+2){
+        //NS_LOG_DEBUG("Game mode 3");
         std::thread th1(findBS);
         th1.detach();
         gameMode=0; //is searching
-      }
-      
-      NS_LOG_DEBUG("jamming power: "<<j);
+      }*/
 
-      for (int i = 0; i < maxPackets; i++)
+      if (gameMode == 0)
+        {
+            NS_LOG_DEBUG("Game mode 0");
+          if (transmission == 0)
+            {
+              if (jammerFound == 1)
+                {
+                  NS_LOG_INFO ("Jammer detected in the channel");
+                }
+              NS_LOG_INFO ("BS is waiting out for the jammer");
+              auto end = std::chrono::high_resolution_clock::now ();
+              auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin);
+              NS_LOG_INFO ("elapsed time " << elapsed.count () * 1e-9);
+              if (elapsed.count () * 1e-9 >= bsWaitTime)
+                {
+                  NS_LOG_INFO ("BS has waited 10s");
+                  if (jammerFound == 1)
+                    {
+                      //transmission = 0;
+                      NS_LOG_INFO ("Jammer detected in the channel, hopping to new");
+                      gameMode = 2;
+                    }
+                  else
+                    {
+                      NS_LOG_INFO ("Established new SNOW network");
+                      transmission = 1;
+                    }
+                }
+            }
+        }
+
+      if(transmission==1){
+        for (int i = 0; i < maxPackets; i++)
         {
           p = Create<Packet> (packetSize);
           Simulator::Schedule (Seconds (i),
                                &snowMac::McpsDataRequest,
                                dev1->GetMac (), params, p);
+          jammerEnergymw-=dbm2mw(j);
         }
+      }
+      //NS_LOG_DEBUG("jamming power: "<<j);
+
       tvTransHelper.InstallAdjacent (tvTransmitterNodes);
       Simulator::Run ();
+
       //NS_LOG_DEBUG ("Received " << g_received << " packets for distance " << j);
       //NS_LOG_DEBUG ("Retry " << g_retry << " packets for distance " << j);
-      psrdataset.Add (j, (g_received / 1000.0)*100.0);
-      if(g_received<500.0 && gameMode==0){
+      auto timer_end = std::chrono::high_resolution_clock::now ();
+      auto timer_elapsed = std::chrono::duration_cast<std::chrono::nanoseconds> (timer_end - timer);
+      double time = timer_elapsed.count()*1e-9;
+      packetCount+=g_received;
+      //NS_LOG_DEBUG(packetCount);
+
+      if(transmission == 0){
+        jammerEnergymw-=dbm2mw(j);
+      }
+
+      if((time-packetTime) >= .9){
+        NS_LOG_INFO("time: "<<time<<" throughput: "<<(packetCount*40)/1000);
+        throughputdataset.Add(time, ((packetCount*40)/1000)/(time-packetTime));
+        packetCount=0;
+        packetTime=time;
+      }
+
+      NS_LOG_INFO("time: "<<time<<" prr: "<<(g_received / 1000.0)*100.0);
+      double epp = dbm2mw(txPower) *(g_retry/1000.0);
+      //double epp = 0.475 *(g_retry/1000.0);
+      //if(epp<0.5) epp = 0.5;
+
+      prrdataset.Add (time, (g_received / 1000.0)*100.0);
+      txdataset.Add (time, txPower);
+      jammertxdataset.Add (time, j);
+      eppdataset.Add (time, epp);
+      jammerenergydataset.Add (time, jammerEnergymw);
+
+      if(g_received<500.0 && gameMode==0 && transmission==1){
+        NS_LOG_INFO("PRR dropped below 50%. Need to hop");
+        auto end = std::chrono::high_resolution_clock::now ();
+        auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds> (end - begin);
+        NS_LOG_INFO("Time of transmission in new channel:"<<(elapsed.count()*1e-9)-10);
         gameMode=2; //need to hop
       }
-      retrydataset.Add (j, txPower);
       g_received = 0;
       g_retry = 0;
-      j += increment;
-      if(gameMode==1){
+
+      if(gameMode==-1 && transmission==1 && g_received<500){
+        NS_LOG_INFO("Adopting TX game");
+        gameMode=1;
+      }
+
+      if((gameMode==1 || gameMode==-1) || (transmission == 1 && testHopOnly==1)){
+        j+=increment;
+        NS_LOG_INFO("jamming power: "<<j);
         tvTransHelper.SetAttribute ("BasePsd", DoubleValue (j));
       }
+      
+      if(time>=1800){
+        break;
+      }
+
+      /*if(jammerEnergymw<=0){
+        break;
+      }*/
       //mob1->SetPosition (Vector (j,0,0));
     }
 
@@ -505,31 +639,84 @@ int main (int argc, char *argv[])
   //bs will move to new channel and show effect for above parameters
 
   //gnuplot
-  psrplot.AddDataset (psrdataset);
- 
-  psrplot.SetTitle (os.str ());
-  psrplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
-  psrplot.SetLegend ("Jamming power (dBm)", "Packet Success Rate (PSR)");
-  psrplot.SetExtra  ("set xrange [-20:1000]\n\
-set yrange [0:100]\n\
-set grid\n\
-set style line 1 linewidth 5\n\
+  prrplot.AddDataset (prrdataset);
+  prrplot.SetTitle (os.str ());
+  prrplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  prrplot.SetLegend ("Time(s)", "Packet Reception Rate (PRR)");
+  prrplot.SetExtra  ("set xrange [0:*]\n\
+set yrange [-1:101]\n\
+set xtic 100\n\
+set mxtics 10\n\
+set style line 1 linewidth 3\n\
 set style increment user");
-  psrplot.GenerateOutput (berfile);
+  prrplot.GenerateOutput (berfile);
   berfile.close ();
 
-  retryplot.AddDataset (retrydataset);
- 
-  retryplot.SetTitle (os.str ());
-  retryplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
-  retryplot.SetLegend ("distance (m)", "Packet Retry Rate (PRR)");
-  retryplot.SetExtra  ("set xrange [-20:1000]\n\
-set yrange [-20:15]\n\
-set grid\n\
-set style line 1 linewidth 5\n\
+  txplot.AddDataset (txdataset);
+  txplot.SetTitle (os.str ());
+  txplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  txplot.SetLegend ("Time(s)", "SNOW node TX");
+  txplot.SetExtra  ("set xrange [0:*]\n\
+set yrange [-21:*]\n\
+set xtic 100\n\
+set mxtics 10\n\
+set style line 1 linewidth 3\n\
 set style increment user");
-  retryplot.GenerateOutput (berfile1);
+  txplot.GenerateOutput (berfile1);
   berfile1.close ();
+
+  jammertxplot.AddDataset (jammertxdataset);
+  jammertxplot.SetTitle (os.str ());
+  jammertxplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  jammertxplot.SetLegend ("Time(s)", "Jammer TX (dBm)");
+  jammertxplot.SetExtra  ("set xrange [0:*]\n\
+set yrange [*:*]\n\
+set xtic 100\n\
+set mxtics 10\n\
+set style line 1 linewidth 3\n\
+set style increment user");
+  jammertxplot.GenerateOutput (berfile2);
+  berfile2.close ();
+
+  eppplot.AddDataset (eppdataset);
+  eppplot.SetTitle (os.str ());
+  eppplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  eppplot.SetLegend ("Time(s)", "Energy per packet (mJ)");
+  eppplot.SetExtra  ("set xrange [0:*]\n\
+set yrange [-0.1:*]\n\
+set xtic 100\n\
+set mxtics 10\n\
+set style line 1 linewidth 3\n\
+set style increment user");
+  eppplot.GenerateOutput (berfile3);
+  berfile3.close ();
+
+  jammerenergyplot.AddDataset (jammerenergydataset);
+  jammerenergyplot.SetTitle (os.str ());
+  jammerenergyplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  jammerenergyplot.SetLegend ("Time(s)", "Jammer energy(mJ)");
+  jammerenergyplot.SetExtra  ("set xrange [0:*]\n\
+set yrange [0:*]\n\
+set xtic 100\n\
+set mxtics 10\n\
+set style line 1 linewidth 3\n\
+set style increment user");
+  jammerenergyplot.GenerateOutput (berfile4);
+  berfile4.close ();
+
+  throughputplot.AddDataset (throughputdataset);
+  throughputplot.SetTitle (os.str ());
+  throughputplot.SetTerminal ("postscript eps color enh \"Times-BoldItalic\"");
+  throughputplot.SetLegend ("Time(s)", "Throughput(kBps)");
+  throughputplot.SetExtra  ("set xrange [0:*]\n\
+set yrange [0:*]\n\
+set xtic 100\n\
+set mxtics 10\n\
+set style line 1 linewidth 3\n\
+set style increment user");
+  throughputplot.GenerateOutput (berfile5);
+  berfile5.close ();
+
  
   Simulator::Destroy ();
   return 0;
