@@ -1259,6 +1259,8 @@ private:
    */
   McpsDataIndicationCallback m_mcpsDataIndicationCallback;
 
+  int m_receiving;
+
 
   /**
    * This callback is used to report data transmission request status to the

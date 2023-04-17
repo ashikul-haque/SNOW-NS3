@@ -185,6 +185,8 @@ snowMac::snowMac ()
   m_beaconTrackingOn = false;
   m_numLostBeacons = 0;
 
+  m_receiving = -100;
+
 
   Ptr<UniformRandomVariable> uniformVar = CreateObject<UniformRandomVariable> ();
   uniformVar->SetAttribute ("Min", DoubleValue (0.0));
@@ -1029,6 +1031,7 @@ snowMac::PdDataIndication (uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
   NS_LOG_FUNCTION (this << psduLength << p << (uint16_t)lqi);
 
   bool acceptFrame;
+  bool dataindication = true;
 
   // from sec 7.5.6.2 Reception and rejection, Std802.15.4-2006
   // level 1 filtering, test FCS field and reject if frame fails
@@ -1063,6 +1066,19 @@ snowMac::PdDataIndication (uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
     {
       snowMacHeader receivedMacHdr;
       p->RemoveHeader (receivedMacHdr);
+
+      if (m_receiving == -100 || receivedMacHdr.GetSeqNum () == m_receiving + 1)
+      {
+        m_receiving = unsigned (receivedMacHdr.GetSeqNum ());
+        if (m_receiving == 255)
+        {
+          m_receiving = -1;
+        }
+      }
+      else{
+        NS_LOG_DEBUG("frame out of seq");
+        dataindication = false;
+      }
 
       McpsDataIndicationParams params;
       params.m_dsn = receivedMacHdr.GetSeqNum ();
@@ -1151,6 +1167,7 @@ snowMac::PdDataIndication (uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                   if (receivedMacHdr.IsAckReq ())
                     {
                       // discard broadcast/multicast with the ACK bit set
+                      NS_LOG_DEBUG("Discading packet as it is multicast or broadcast");
                       acceptFrame = false;
                     }
                   else
@@ -1352,7 +1369,7 @@ snowMac::PdDataIndication (uint32_t psduLength, Ptr<Packet> p, uint8_t lqi)
                         }
                     }
                 }
-              else if (receivedMacHdr.IsData () && !m_mcpsDataIndicationCallback.IsNull ())
+              else if (receivedMacHdr.IsData () && !m_mcpsDataIndicationCallback.IsNull () && dataindication)
                 {
                   // If it is a data frame, push it up the stack.
                   NS_LOG_DEBUG ("Data Packet is for me; forwarding up");

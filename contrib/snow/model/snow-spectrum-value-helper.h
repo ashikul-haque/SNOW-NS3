@@ -54,6 +54,8 @@ public:
 
   Ptr<SpectrumValue> CreateJammerPowerSpectralDensity (double txPower, double centerFreq);
 
+  void setBandwidth(double bw);
+
   /**
    * \brief total average power of the signal is the integral of the PSD using
    * the limits of the given channel

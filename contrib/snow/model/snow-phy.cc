@@ -45,7 +45,7 @@ NS_LOG_COMPONENT_DEFINE ("snowPhy");
 NS_OBJECT_ENSURE_REGISTERED (snowPhy);
 
 // Table 22 in section 6.4.1 of ieee802.15.4
-const uint32_t snowPhy::aMaxPhyPacketSize = 127; // max PSDU in octets
+const uint32_t snowPhy::aMaxPhyPacketSize = 5080; // max PSDU in octets
 const uint32_t snowPhy::aTurnaroundTime = 12;  // RX-to-TX or TX-to-RX in symbol periods
 
 // IEEE802.15.4-2006 Table 2 in section 6.1.2 (kb/s and ksymbol/s)
@@ -228,6 +228,13 @@ snowPhy::GetChannel (void)
   return m_channel;
 }
 
+double 
+snowPhy::getCenterFreq(void)
+{
+  NS_LOG_FUNCTION (this);
+  return m_phyPIBAttributes.centerFreq;
+}
+
 
 Ptr<const SpectrumModel>
 snowPhy::GetRxSpectrumModel (void) const
@@ -275,6 +282,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
 
   if (snowRxParams == 0)
     {
+      NS_LOG_DEBUG("No RxParams");
       CheckInterference ();
       m_signal->AddSignal (spectrumRxParams->psd);
 
@@ -331,6 +339,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
       // It's useless to even *try* to decode the packet.
       if (10 * log10 (sinr) > -5)
         {
+          NS_LOG_DEBUG("SNR is good for decoding");
           ChangeTrxState (SNOW_PHY_BUSY_RX);
           m_currentRxPacket = std::make_pair (snowRxParams, false);
           m_phyRxBeginTrace (p);
@@ -339,6 +348,7 @@ snowPhy::StartRx (Ptr<SpectrumSignalParameters> spectrumRxParams)
         }
       else
         {
+          NS_LOG_DEBUG("SNR is bad for decoding");
           m_phyRxDropTrace (p);
         }
     }

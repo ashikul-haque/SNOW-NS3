@@ -358,6 +358,8 @@ public:
 
   void RemoveJamming (Ptr<const SpectrumValue> m_jammer);
 
+  double getCenterFreq(void);
+
   //double CheckJamming ();
 
   /**

@@ -28,7 +28,7 @@ namespace ns3 {
 NS_LOG_COMPONENT_DEFINE ("snowSpectrumValueHelper");
 
 Ptr<SpectrumModel> g_snowSpectrumModel; //!< Global object used to initialize the snow Spectrum Model
-double m_bandwidth = 100e3, m_centerFreq = 500e6;
+double m_bandwidth = 200e3, m_centerFreq = 470e6;
 
 /**
  * \ingroup snow
@@ -43,13 +43,13 @@ public:
     NS_LOG_FUNCTION (this);
 
     Bands bands;
-    // 1 MHz resolution, with center frequency of 2400, 2401, ... 2483
-    // overall frequency span of 2399.5 MHz through 2483.5 MHz (83 bands)
-    for (int i = 0; i <= 3200; i++)
+    int nBands = 320e6/m_bandwidth;
+    
+    for (int i = 0; i <= nBands; i++)
       {
         BandInfo bi;
-        bi.fl = 470e6 + i * 100e3;
-        bi.fh = 470e6 + (i + 1) * 100e3;
+        bi.fl = m_centerFreq + i * m_bandwidth;
+        bi.fh = m_centerFreq + (i + 1) * m_bandwidth;
         bi.fc = (bi.fl +  bi.fh) / 2;
         bands.push_back (bi);
       }
@@ -81,9 +81,7 @@ Ptr<SpectrumValue>
 snowSpectrumValueHelper::CreateTxPowerSpectralDensity (double txPower, double centerFreq)
 {
   NS_LOG_FUNCTION (this);
-  NS_LOG_DEBUG(centerFreq);
-  NS_LOG_DEBUG(txPower);
-  //m_centerFreq = centerFreq;
+
   Ptr<SpectrumValue> txPsd = Create <SpectrumValue> (g_snowSpectrumModel);
 
   // txPower is expressed in dBm. We must convert it into natural unit (W).
@@ -100,7 +98,7 @@ snowSpectrumValueHelper::CreateTxPowerSpectralDensity (double txPower, double ce
   // The channel assignment is in section 6.1.2.1
   // Channel 11 centered at 2.405 GHz, 12 at 2.410 GHz, ... 26 at 2.480 GHz
   
-  int channel = (centerFreq-470e6)/(100e3);
+  int channel = (centerFreq-m_centerFreq)/(m_bandwidth);
   NS_LOG_DEBUG(channel);
 
   (*txPsd)[channel] = txPowerDensity; // center
@@ -116,8 +114,7 @@ Ptr<SpectrumValue>
 snowSpectrumValueHelper::CreateNoisePowerSpectralDensity (double centerFreq)
 {
   NS_LOG_FUNCTION (this);
-  //m_centerFreq = centerFreq;
-  //snowSpectrumModelInitializer();
+
   Ptr<SpectrumValue> noisePsd = Create <SpectrumValue> (g_snowSpectrumModel);
 
   static const double BOLTZMANN = 1.3803e-23;
@@ -126,7 +123,7 @@ snowSpectrumValueHelper::CreateNoisePowerSpectralDensity (double centerFreq)
   // noise Floor (W) which accounts for thermal noise and non-idealities of the receiver
   double noisePowerDensity = m_noiseFactor * Nt;
 
-  int channel = (centerFreq-470e6)/(100e3);
+  int channel = (centerFreq-m_centerFreq)/(m_bandwidth);
   (*noisePsd)[channel] = noisePowerDensity;
 
   return noisePsd;
@@ -141,18 +138,9 @@ snowSpectrumValueHelper::CreateJammerPowerSpectralDensity (double txPower, doubl
 
   double txPowerDensity = txPower;
   
-  int channel = (centerFreq-470e6)/(100e3);
-
-  //int start = channel-30;
-  //int end = channel+30;
+  int channel = (centerFreq-m_centerFreq)/(m_bandwidth);
 
   (*txPsd)[channel] = txPowerDensity;
-
-  //NS_LOG_DEBUG("Channel number: " << channel);
-
-  /*for(int i=start;i<=end;i++){
-    (*txPsd)[i] = txPowerDensity; // center
-  }*/
 
   return txPsd;
 }
@@ -168,7 +156,7 @@ snowSpectrumValueHelper::TotalAvgPower (Ptr<const SpectrumValue> psd, double cen
 
   // numerically integrate to get area under psd using 1 MHz resolution
 
-  int channel = (centerFreq-470e6)/(100e3);
+  int channel = (centerFreq-m_centerFreq)/(m_bandwidth);
   totalAvgPower = (*psd)[channel];
   //totalAvgPower *= 1.0e6;
 
