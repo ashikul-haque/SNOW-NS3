@@ -604,7 +604,7 @@ main (int argc, char *argv[])
   mobility.SetPositionAllocator (nodePositionList);
   //mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (tvTransmitterNodes);
-  // TV transmitter setup
+  // Jammer setup
   tvTransHelper.SetChannel (channel);
   tvTransHelper.SetAttribute ("StartFrequency", DoubleValue (470e6));
   tvTransHelper.SetAttribute ("ChannelBandwidth", DoubleValue (6e6));
